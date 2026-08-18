@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <meta content="IE=Edge" http-equiv="X-UA-Compatible">
+  <meta name="description" content="AI Knowledge Workspace">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black">
+  <meta name="apple-mobile-web-app-title" content="AI Knowledge Workspace">
+  <link rel="apple-touch-icon" href="icons/Icon-192.png">
+  <link rel="icon" type="image/png" href="icons/Icon-192.png">
+  <title>AI Knowledge Workspace</title>
+  <link rel="manifest" href="manifest.json">
+  <script>
+    var serviceWorkerVersion = null;
+    var scriptLoaded = false;
+    function loadMainDartJs() {
+      if (scriptLoaded) {
+        return;
+      }
+      scriptLoaded = true;
+      var scriptTag = document.createElement('script');
+      scriptTag.src = 'main.dart.js';
+      scriptTag.type = 'application/javascript';
+      document.body.append(scriptTag);
+    }
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', function () {
+        navigator.serviceWorker.register('flutter_service_worker.js').then(function (registration) {
+          registration.addEventListener('updatefound', function () {
+            var installingWorker = registration.installing;
+            installingWorker.addEventListener('statechange', function () {
+              switch (installingWorker.state) {
+                case 'installed':
+                  if (navigator.serviceWorker.controller) {
+                    var snackbar = document.createElement('div');
+                    snackbar.textContent = 'New version available';
+                    snackbar.style.cssText = 'position:fixed;bottom:0;left:0;right:0;background:#333;color:#fff;padding:16px;text-align:center;z-index:1000;';
+                    document.body.appendChild(snackbar);
+                    var reloadButton = document.createElement('button');
+                    reloadButton.textContent = 'Reload';
+                    reloadButton.style.cssText = 'margin-left:16px;padding:8px 16px;background:#6750A4;color:#fff;border:none;border-radius:4px;';
+                    reloadButton.onclick = function () {
+                      window.location.reload();
+                    };
+                    snackbar.appendChild(reloadButton);
+                  }
+                  break;
+                case 'redundant':
+                  console.error('Service worker registration failed.');
+                  break;
+              }
+            });
+          });
+        }).catch(function (e) {
+          console.error('Service worker registration failed:', e);
+        });
+      });
+    }
+  </script>
+</head>
+<body>
+  <script>
+    window.addEventListener('load', function (ev) {
+      loadMainDartJs();
+    });
+  </script>
+</body>
+</html>
