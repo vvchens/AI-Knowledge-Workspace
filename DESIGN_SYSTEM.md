@@ -51,6 +51,20 @@ Prefer existing Material 3 components:
 
 Create custom components only when the product requires behavior or presentation that Material 3 cannot provide cleanly.
 
+### Component Reuse Policy
+
+All feature UI must use an existing Material 3 component, shared component, or design token whenever one provides the required behavior and presentation.
+
+When no suitable component exists:
+
+1. Confirm that the pattern is required by the product and cannot be composed from existing components.
+2. Create the new component in the shared design-system/components layer.
+3. Make the component configurable through semantic properties rather than feature-specific styling.
+4. Document the component's intended use when its behavior is not self-evident.
+5. Use the new shared component from the feature instead of implementing a local duplicate.
+
+Feature folders must not contain one-off replacements for shared components. A component should be promoted to the shared layer when it is reused, represents a documented design pattern, or centralizes a visual or interaction rule that must remain consistent.
+
 ---
 
 ## 3. Theme

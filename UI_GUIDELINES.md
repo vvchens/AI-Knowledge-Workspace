@@ -25,6 +25,13 @@ The coding agent must:
 5. Identify loading, empty, error, and success states.
 6. Implement tests where appropriate.
 
+For every new UI pattern, follow this order:
+
+1. Reuse a suitable Material 3 widget or existing shared component.
+2. Compose existing shared components when the pattern can be built from them.
+3. If neither option is suitable, create a reusable component in the shared design-system/components layer.
+4. Do not implement a feature-local duplicate of a shared component.
+
 ---
 
 ## 3. Do Not Invent Visual Patterns
@@ -39,6 +46,7 @@ Do not independently introduce:
 - duplicate components
 
 If a new pattern is necessary, update the design system first.
+The new pattern must then be implemented as a shared component before it is used by a feature.
 
 ---
 

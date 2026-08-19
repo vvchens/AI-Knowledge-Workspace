@@ -2,6 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'components/app_components.dart';
+import 'theme/app_theme.dart';
+import 'theme/app_tokens.dart';
+
 void main() {
   runApp(const ProviderScope(child: App()));
 }
@@ -26,10 +30,7 @@ class App extends StatelessWidget {
 
     return MaterialApp.router(
       title: 'AI Knowledge Workspace',
-      theme: ThemeData(
-        colorSchemeSeed: const Color(0xFF6750A4),
-        useMaterial3: true,
-      ),
+      theme: AppTheme.light,
       routerConfig: router,
     );
   }
@@ -45,16 +46,21 @@ class HomeScreen extends StatelessWidget {
         title: const Text('AI Knowledge Workspace'),
       ),
       body: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const Text('Phase 1 skeleton'),
-            const SizedBox(height: 16),
-            FilledButton(
-              onPressed: () => context.go('/projects'),
-              child: const Text('Open projects'),
-            ),
-          ],
+        child: AppCard(
+          padding: const EdgeInsets.all(AppSpacing.xxl),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text('Phase 1 skeleton',
+                  style: Theme.of(context).textTheme.titleLarge),
+              const SizedBox(height: AppSpacing.lg),
+              AppButton(
+                label: 'Open projects',
+                icon: Icons.folder_open_outlined,
+                onPressed: () => context.go('/projects'),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -70,8 +76,18 @@ class ProjectsScreen extends StatelessWidget {
       appBar: AppBar(
         title: const Text('Projects'),
       ),
-      body: const Center(
-        child: Text('Project list placeholder'),
+      body: Center(
+        child: AppCard(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text('Project list placeholder',
+                  style: Theme.of(context).textTheme.bodyMedium),
+              const SizedBox(height: AppSpacing.md),
+              const AppStatusChip(label: 'Ready', color: AppColors.success),
+            ],
+          ),
+        ),
       ),
     );
   }

@@ -53,6 +53,8 @@ For UI work, also read the relevant screen specification.
 11. Update documentation when architecture changes.
 12. Explain significant trade-offs in the final implementation summary.
 
+For UI implementation, always search the Material 3 and shared component libraries before writing new widget structure. If the required pattern is not available, add a reusable component to the shared design-system/components layer and consume it from the feature. Do not create feature-local components for documented or reusable patterns.
+
 ---
 
 ## UI Rules
