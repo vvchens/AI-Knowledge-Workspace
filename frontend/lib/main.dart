@@ -3,6 +3,8 @@ import 'package:go_router/go_router.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'components/app_components.dart';
+import 'screens/login_screen.dart';
+import 'screens/projects_screen.dart';
 import 'theme/app_theme.dart';
 import 'theme/app_tokens.dart';
 
@@ -19,7 +21,11 @@ class App extends StatelessWidget {
       routes: [
         GoRoute(
           path: '/',
-          builder: (context, state) => const HomeScreen(),
+          redirect: (context, state) => '/login',
+        ),
+        GoRoute(
+          path: '/login',
+          builder: (context, state) => const LoginScreen(),
         ),
         GoRoute(
           path: '/projects',
@@ -59,32 +65,6 @@ class HomeScreen extends StatelessWidget {
                 icon: Icons.folder_open_outlined,
                 onPressed: () => context.go('/projects'),
               ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class ProjectsScreen extends StatelessWidget {
-  const ProjectsScreen({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Projects'),
-      ),
-      body: Center(
-        child: AppCard(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text('Project list placeholder',
-                  style: Theme.of(context).textTheme.bodyMedium),
-              const SizedBox(height: AppSpacing.md),
-              const AppStatusChip(label: 'Ready', color: AppColors.success),
             ],
           ),
         ),

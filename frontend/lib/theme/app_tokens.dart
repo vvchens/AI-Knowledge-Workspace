@@ -9,6 +9,7 @@ abstract final class AppSpacing {
   static const xxl = 32.0;
   static const xxxl = 48.0;
   static const huge = 64.0;
+  static const card = 40.0;
 }
 
 abstract final class AppRadius {
@@ -19,6 +20,9 @@ abstract final class AppRadius {
 }
 
 abstract final class AppColors {
+  static const loginBackground = Color(0xFFF6F4F9);
+  static const cardSurface = Color(0xFFFFFFFF);
+  static const inputOutline = Color(0xFFE7E0EC);
   static const success = Color(0xFF2E7D32);
   static const warning = Color(0xFFB26A00);
   static const info = Color(0xFF1565C0);

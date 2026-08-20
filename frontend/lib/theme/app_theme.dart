@@ -14,7 +14,7 @@ abstract final class AppTheme {
     return ThemeData(
       colorScheme: scheme,
       useMaterial3: true,
-      scaffoldBackgroundColor: scheme.surface,
+      scaffoldBackgroundColor: AppColors.loginBackground,
       visualDensity: VisualDensity.standard,
       textTheme: _textTheme(scheme),
       appBarTheme: AppBarTheme(
