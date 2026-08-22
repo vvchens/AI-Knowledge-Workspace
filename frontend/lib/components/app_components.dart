@@ -56,7 +56,7 @@ class AppStatusChip extends StatelessWidget {
       label: Text(label),
       labelStyle:
           Theme.of(context).textTheme.labelMedium?.copyWith(color: color),
-      backgroundColor: color.withOpacity(0.12),
+      backgroundColor: color.withValues(alpha: 0.12),
       side: BorderSide.none,
       visualDensity: VisualDensity.compact,
       padding: const EdgeInsets.symmetric(horizontal: AppSpacing.xs),

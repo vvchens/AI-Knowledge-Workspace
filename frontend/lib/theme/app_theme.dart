@@ -25,7 +25,7 @@ abstract final class AppTheme {
         centerTitle: false,
         titleTextStyle: _textTheme(scheme).titleLarge,
       ),
-      cardTheme: CardTheme(
+      cardTheme: CardThemeData(
         margin: EdgeInsets.zero,
         elevation: 0,
         clipBehavior: Clip.antiAlias,
