@@ -13,3 +13,13 @@ Recommended starting order:
 7. CODEX_INSTRUCTIONS.md
 
 The image under `docs/design/references/` is a visual reference only; the Markdown design documents are the implementation source of truth.
+
+## Development Environment
+
+Set `DEV=1` to enable development mode across the local services. The backend receives the variable through Docker Compose, and Flutter pre-fills the login form with `dev@dev.com` and `dev` when the same flag is passed at build time:
+
+```bash
+DEV=1 docker compose up --build
+cd frontend
+flutter run --dart-define=DEV=1
+```

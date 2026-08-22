@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
-
+import 'package:go_router/go_router.dart';
 import '../components/app_components.dart';
 import '../theme/app_tokens.dart';
 
@@ -12,9 +12,14 @@ class LoginScreen extends StatefulWidget {
 }
 
 class _LoginScreenState extends State<LoginScreen> {
+  static const _isDevEnvironment = String.fromEnvironment('DEV') == '1';
   final _formKey = GlobalKey<FormState>();
-  final _emailController = TextEditingController();
-  final _passwordController = TextEditingController();
+  final _emailController = TextEditingController(
+    text: _isDevEnvironment ? 'dev@dev.com' : null,
+  );
+  final _passwordController = TextEditingController(
+    text: _isDevEnvironment ? 'dev' : null,
+  );
   bool _obscurePassword = true;
 
   @override
@@ -31,6 +36,7 @@ class _LoginScreenState extends State<LoginScreen> {
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('Sign-in is not connected yet.')),
     );
+    context.go('/projects');
   }
 
   @override

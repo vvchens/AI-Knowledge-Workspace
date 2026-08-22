@@ -9,6 +9,7 @@ services:
     environment:
       APP_NAME: 'AI Knowledge Workspace'
       ENVIRONMENT: development
+      DEV: '${DEV:-0}'
     volumes:
       - ./backend/app:/app/app
 
