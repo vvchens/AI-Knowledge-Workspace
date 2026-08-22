@@ -1,6 +1,6 @@
-FROM nginx:1.27-alpine
+FROM linuxserver/letsencrypt:version-1.11.0
 
-COPY build/web /usr/share/nginx/html
-COPY nginx.conf /etc/nginx/conf.d/default.conf
+COPY build/web /config/www
+COPY nginx.conf /defaults/default
 
-EXPOSE 80
+EXPOSE 80 443
