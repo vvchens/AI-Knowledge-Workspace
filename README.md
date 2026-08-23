@@ -14,12 +14,36 @@ Recommended starting order:
 
 The image under `docs/design/references/` is a visual reference only; the Markdown design documents are the implementation source of truth.
 
-## Development Environment
+## Local Development
 
-Set `DEV=1` to enable development mode across the local services. The backend receives the variable through Docker Compose, and Flutter pre-fills the login form with `dev@dev.com` and `dev` when the same flag is passed at build time:
+Local development runs directly on host machine (no Docker):
 
 ```bash
-DEV=1 docker compose up --build
+# backend
+cd backend
+pip install -r requirements.txt
+uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+
+# frontend (new terminal)
 cd frontend
-flutter run --dart-define=DEV=1
+flutter pub get
+flutter run -d chrome --web-port 8080 --dart-define=DEV=1
 ```
+
+The `DEV=1` flag keeps the development defaults enabled in app behavior (for example, pre-filled login in Flutter).
+
+## Production Deployment (Docker + SWAG)
+
+Docker Compose is reserved for production-like deployment with DuckDNS + Let's Encrypt SSL:
+
+```bash
+docker compose up -d --build
+```
+
+Before first run, fill DuckDNS and SSL fields in `.env`:
+
+- `DUCKDNS_SUBDOMAINS`
+- `DUCKDNS_TOKEN`
+- `LETSENCRYPT_EMAIL`
+
+Recommendation: keep `LE_STAGING=true` on first issue test, then switch to `false` for real certificates.

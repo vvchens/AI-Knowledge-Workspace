@@ -1,6 +1,6 @@
-FROM lscr.io/linuxserver/swag:latest
+FROM nginx:1.27-alpine
 
-COPY build/web /defaults/www
-COPY nginx.conf /config/nginx/site-confs/default.conf
+COPY build/web /usr/share/nginx/html
+COPY nginx.conf /etc/nginx/conf.d/default.conf
 
-EXPOSE 80 443
+EXPOSE 80

@@ -1,28 +1,37 @@
-version: '3.9'
-
 services:
   backend:
     build:
       context: ./backend
     ports:
       - '8000:8000'
-    environment:
-      APP_NAME: 'AI Knowledge Workspace'
-      ENVIRONMENT: development
-      DEV: '${DEV:-0}'
+    env_file:
+      - ./.env
+    extra_hosts:
+      - 'host.docker.internal:host-gateway'
     volumes:
       - ./backend/app:/app/app
 
-  db:
-    image: postgres:16
-    environment:
-      POSTGRES_DB: ai_knowledge_workspace
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.swag
     ports:
-      - '5432:5432'
+      - '80:80'
+      - '443:443'
+    env_file:
+      - ./.env
+    environment:
+      PUID: '${PUID:-1000}'
+      PGID: '${PGID:-1000}'
+      TZ: '${TZ:-UTC}'
+      URL: '${DUCKDNS_URL}'
+      SUBDOMAINS: '${DUCKDNS_SUBDOMAINS}'
+      VALIDATION: 'duckdns'
+      DUCKDNSTOKEN: '${DUCKDNS_TOKEN}'
+      EMAIL: '${LETSENCRYPT_EMAIL}'
+      ONLY_SUBDOMAINS: '${ONLY_SUBDOMAINS:-false}'
+      STAGING: '${LE_STAGING:-false}'
     volumes:
-      - postgres_data:/var/lib/postgresql/data
-
-volumes:
-  postgres_data:
+      - ./frontend/swag-config:/config
+    depends_on:
+      - backend

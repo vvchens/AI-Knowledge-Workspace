@@ -2,14 +2,16 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from app.core.config import settings
+
 
 @dataclass
 class DatabaseConfig:
-    host: str = "localhost"
-    port: int = 5432
-    database: str = "ai_knowledge_workspace"
-    username: str = "postgres"
-    password: str = "postgres"
+    host: str = settings.db_host
+    port: int = settings.db_port
+    database: str = settings.db_name
+    username: str = settings.db_user
+    password: str = settings.db_password
 
 
 class DatabaseConnection:

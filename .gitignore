@@ -84,6 +84,7 @@ logs/
 .docker/
 docker-compose.override.yml
 .dockerignore
+frontend/swag-config/
 
 # ---------- Node / JS (if any) ----------
 node_modules/
