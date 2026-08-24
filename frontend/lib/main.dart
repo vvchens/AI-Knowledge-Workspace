@@ -3,7 +3,9 @@ import 'package:go_router/go_router.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'components/app_components.dart';
+import 'screens/dashboard_screen.dart';
 import 'screens/login_screen.dart';
+import 'screens/project_overview_screen.dart';
 import 'screens/projects_screen.dart';
 import 'theme/app_theme.dart';
 import 'theme/app_tokens.dart';
@@ -28,8 +30,16 @@ class App extends StatelessWidget {
           builder: (context, state) => const LoginScreen(),
         ),
         GoRoute(
+          path: '/dashboard',
+          builder: (context, state) => const DashboardScreen(),
+        ),
+        GoRoute(
           path: '/projects',
           builder: (context, state) => const ProjectsScreen(),
+        ),
+        GoRoute(
+          path: '/project-overview',
+          builder: (context, state) => const ProjectOverviewScreen(),
         ),
       ],
     );
