@@ -32,6 +32,8 @@ flutter run -d chrome --web-port 8080 --dart-define=DEV=1
 
 The `DEV=1` flag keeps the development defaults enabled in app behavior (for example, pre-filled login in Flutter).
 
+The Flutter VS Code launch configuration reads Firebase Web values from the root `.env` file using `--dart-define-from-file`. Keep this file local and do not commit it.
+
 ## Production Deployment (Docker + SWAG)
 
 Docker Compose is reserved for production-like deployment with DuckDNS + Let's Encrypt SSL:
@@ -47,3 +49,5 @@ Before first run, fill DuckDNS and SSL fields in `.env`:
 - `LETSENCRYPT_EMAIL`
 
 Recommendation: keep `LE_STAGING=true` on first issue test, then switch to `false` for real certificates.
+
+The frontend GitHub Actions workflow injects Firebase Web configuration from GitHub Actions Secrets instead of reading a repository `.env` file. Configure `FIREBASE_API_KEY`, `FIREBASE_AUTH_DOMAIN`, `FIREBASE_PROJECT_ID`, `FIREBASE_STORAGE_BUCKET`, `FIREBASE_MESSAGING_SENDER_ID`, and `FIREBASE_APP_ID`; `FIREBASE_MEASUREMENT_ID` is optional.
