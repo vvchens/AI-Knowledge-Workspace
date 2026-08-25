@@ -9,6 +9,7 @@ permissions:
   packages: write
 
 jobs:
+  environment: test
   build-and-publish:
     if: github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && github.actor == github.repository_owner)
     runs-on: ubuntu-latest
