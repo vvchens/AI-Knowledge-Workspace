@@ -1,6 +1,9 @@
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
+
 import '../components/app_components.dart';
 import '../theme/app_tokens.dart';
 
@@ -20,7 +23,9 @@ class _LoginScreenState extends State<LoginScreen> {
   final _passwordController = TextEditingController(
     text: _isDevEnvironment ? 'dev' : null,
   );
+  final FirebaseAuth _auth = FirebaseAuth.instance;
   bool _obscurePassword = true;
+  bool _isSubmitting = false;
 
   @override
   void dispose() {
@@ -29,14 +34,71 @@ class _LoginScreenState extends State<LoginScreen> {
     super.dispose();
   }
 
-  void _signIn() {
+  Future<void> _signIn() async {
     if (!(_formKey.currentState?.validate() ?? false)) return;
 
     FocusManager.instance.primaryFocus?.unfocus();
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Sign-in is not connected yet.')),
-    );
-    context.go('/projects');
+
+    setState(() => _isSubmitting = true);
+
+    try {
+      final email = _emailController.text.trim();
+      final password = _passwordController.text;
+
+      if (Firebase.apps.isEmpty) {
+        throw FirebaseException(
+          plugin: 'firebase_auth',
+          code: 'firebase-not-initialized',
+          message: 'Firebase is not configured for this app.',
+        );
+      }
+
+      await _auth.signInWithEmailAndPassword(
+        email: email,
+        password: password,
+      );
+
+      if (!mounted) return;
+      context.go('/projects');
+    } on FirebaseAuthException catch (error) {
+      if (!mounted) return;
+      _showMessage(_formatFirebaseError(error));
+    } on FirebaseException catch (error) {
+      if (!mounted) return;
+      _showMessage(error.message ?? 'Firebase is not configured for this app.');
+    } catch (error) {
+      if (!mounted) return;
+      _showMessage(
+        'Firebase Auth is not configured. Use the Firebase project values or run with DEV=1.',
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _isSubmitting = false);
+      }
+    }
+  }
+
+  String _formatFirebaseError(FirebaseAuthException error) {
+    switch (error.code) {
+      case 'invalid-email':
+        return 'The email address is invalid.';
+      case 'user-disabled':
+        return 'This user account has been disabled.';
+      case 'user-not-found':
+        return 'No account was found for this email.';
+      case 'wrong-password':
+        return 'The password is incorrect.';
+      case 'too-many-requests':
+        return 'Too many attempts. Please try again later.';
+      default:
+        return error.message ?? 'Authentication failed.';
+    }
+  }
+
+  void _showMessage(String message) {
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(SnackBar(content: Text(message)));
   }
 
   @override
@@ -252,8 +314,8 @@ class _LoginScreenState extends State<LoginScreen> {
                             SizedBox(
                               width: double.infinity,
                               child: AppButton(
-                                label: 'Sign In',
-                                onPressed: _signIn,
+                                label: _isSubmitting ? 'Signing in...' : 'Sign In',
+                                onPressed: _isSubmitting ? null : _signIn,
                               ),
                             ),
                             Align(

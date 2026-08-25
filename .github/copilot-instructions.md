@@ -226,9 +226,19 @@ Never hardcode:
 
 Use environment variables or the appropriate secret-management mechanism.
 
+This repository is public-facing and must never contain sensitive values in source control. This includes:
+
+* Firebase config values (apiKey, authDomain, projectId, appId, etc.)
+* OAuth/client secrets
+* backend env files containing real credentials
+* any production or staging API keys
+* any private certificates or keys
+
 Never commit production secrets to Git.
 
 If a secret is accidentally exposed, treat it as compromised and rotate it rather than merely deleting it from the latest commit.
+
+For public repos, all sensitive values must be supplied at build or deployment time through secure env injection, CI secrets, or secret managers, never by checking them into the repository.
 
 ---
 

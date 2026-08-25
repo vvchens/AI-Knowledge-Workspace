@@ -11,6 +11,20 @@ For product and UI changes, also read the design guidance under `docs/design/`, 
 - `docs/design/UI_GUIDELINES.md`
 - `docs/design/NAVIGATION.md`
 
+## Security / Secrets
+
+This repository is public and must not contain any sensitive configuration, credentials, or secrets in source control.
+
+Never commit:
+
+- Firebase API keys or config values
+- database credentials
+- API tokens or private keys
+- production/staging secrets
+- environment files with real values
+
+Use environment variables, CI secret injection, or a secret manager instead.
+
 ## Database
 
 For any database schema change:

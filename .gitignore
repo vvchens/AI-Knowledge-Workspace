@@ -7,7 +7,7 @@
 build/
 .dart_tool/
 .pub-cache/
-pubspec.lock
+.flutter-plugins-dependencies
 
 # Generated files
 *.g.dart
