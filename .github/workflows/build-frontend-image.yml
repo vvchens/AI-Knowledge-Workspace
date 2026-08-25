@@ -8,11 +8,10 @@ permissions:
   contents: read
   packages: write
 
-environment: test
-
 jobs:
   build-and-publish:
     if: github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && github.actor == github.repository_owner)
+    environment: test
     runs-on: ubuntu-latest
 
     steps:
