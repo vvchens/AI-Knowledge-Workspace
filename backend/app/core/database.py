@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import Generator
 
 from sqlalchemy import Engine, create_engine, text
 from sqlalchemy.engine import URL
@@ -57,3 +58,11 @@ class DatabaseConnection:
 
 
 database = DatabaseConnection()
+
+
+def get_db_session() -> Generator[Session, None, None]:
+    session = database.session()
+    try:
+        yield session
+    finally:
+        session.close()

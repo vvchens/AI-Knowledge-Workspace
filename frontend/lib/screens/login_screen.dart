@@ -5,6 +5,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
 
 import '../components/app_components.dart';
+import '../environment.dart';
 import '../theme/app_tokens.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -15,13 +16,12 @@ class LoginScreen extends StatefulWidget {
 }
 
 class _LoginScreenState extends State<LoginScreen> {
-  static const _isDevEnvironment = String.fromEnvironment('DEV') == '1';
   final _formKey = GlobalKey<FormState>();
   final _emailController = TextEditingController(
-    text: _isDevEnvironment ? 'dev@dev.com' : null,
+    text: AppEnvironment.isDev ? 'dev@dev.dev' : null,
   );
   final _passwordController = TextEditingController(
-    text: _isDevEnvironment ? 'dev' : null,
+    text: AppEnvironment.isDev ? 'devdev' : null,
   );
   final FirebaseAuth _auth = FirebaseAuth.instance;
   bool _obscurePassword = true;
@@ -69,7 +69,7 @@ class _LoginScreenState extends State<LoginScreen> {
     } catch (error) {
       if (!mounted) return;
       _showMessage(
-        'Firebase Auth is not configured. Use the Firebase project values or run with DEV=1.',
+        'Firebase Auth is not configured. Use the Firebase project values or run with DEV=true.',
       );
     } finally {
       if (mounted) {
@@ -314,7 +314,8 @@ class _LoginScreenState extends State<LoginScreen> {
                             SizedBox(
                               width: double.infinity,
                               child: AppButton(
-                                label: _isSubmitting ? 'Signing in...' : 'Sign In',
+                                label:
+                                    _isSubmitting ? 'Signing in...' : 'Sign In',
                                 onPressed: _isSubmitting ? null : _signIn,
                               ),
                             ),

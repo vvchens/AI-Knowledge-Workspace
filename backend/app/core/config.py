@@ -19,6 +19,20 @@ class Settings(BaseSettings):
     db_user: str = Field(default="postgres", validation_alias="DB_USER")
     db_password: str = Field(default="postgres", validation_alias="DB_PASSWORD")
 
+    firebase_project_id: str | None = Field(default=None, validation_alias="FIREBASE_PROJECT_ID")
+    firebase_service_account_json: str | None = Field(
+        default=None,
+        validation_alias="FIREBASE_SERVICE_ACCOUNT_JSON",
+    )
+    firebase_service_account_file: str | None = Field(
+        default=None,
+        validation_alias="FIREBASE_SERVICE_ACCOUNT_FILE",
+    )
+
+    session_ttl_hours: int = Field(default=168, validation_alias="SESSION_TTL_HOURS")
+    session_cookie_name: str = Field(default="akw_session", validation_alias="SESSION_COOKIE_NAME")
+    session_cookie_secure: bool = Field(default=False, validation_alias="SESSION_COOKIE_SECURE")
+
     model_config = SettingsConfigDict(
         env_file=(str(PROJECT_ROOT / ".env"), ".env"),
         extra="ignore",
