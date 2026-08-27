@@ -119,7 +119,7 @@ jobs:
           tags: ${{ steps.meta-backend.outputs.tags }}
           labels: ${{ steps.meta-backend.outputs.labels }}
 
-notify-deploy:
+  notify-deploy:
     runs-on: ubuntu-latest
     needs: [build-and-publish, build-and-publish-backend]  # 核心：必须等待两个 build 都成功
     steps:
