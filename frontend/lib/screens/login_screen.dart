@@ -182,82 +182,74 @@ class _LoginScreenState extends State<LoginScreen> {
                           ),
                         ),
                         const SizedBox(height: AppSpacing.xl),
-                        Row(
-                          children: [
-                            Expanded(
-                              child: OutlinedButton(
-                                style: OutlinedButton.styleFrom(
-                                  padding: const EdgeInsets.symmetric(
-                                    vertical: AppSpacing.md,
-                                  ),
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(
-                                      AppRadius.md,
-                                    ),
-                                  ),
-                                  side: const BorderSide(
-                                    color: AppColors.inputOutline,
-                                  ),
-                                ),
-                                onPressed: () => _showMessage(
-                                  'Google sign-in is not connected yet.',
-                                ),
-                                child: Row(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  children: const [
-                                    Text(
-                                      'G',
-                                      style: TextStyle(
-                                        fontWeight: FontWeight.bold,
-                                        fontSize: 18,
-                                      ),
-                                    ),
-                                    SizedBox(width: AppSpacing.sm),
-                                    Text('Sign in with Google'),
-                                  ],
-                                ),
-                              ),
+                        SizedBox(
+                          height: 40,
+                          width: double.infinity,
+                          child: OutlinedButton(
+                            style: OutlinedButton.styleFrom(
+                              backgroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(horizontal: 12),
+                              shape: const StadiumBorder(),
+                              side: const BorderSide(color: Color(0xFF747775)),
                             ),
-                          ],
+                            onPressed: () => _showMessage(
+                              'Google sign-in is not connected yet.',
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                SvgPicture.asset(
+                                  'assets/icons/google.svg',
+                                  width: 20,
+                                  height: 20,
+                                ),
+                                const SizedBox(width: 10),
+                                const Text(
+                                  'Sign in with Google',
+                                  style: TextStyle(
+                                    color: Color(0xFF1F1F1F),
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
                         ),
                         const SizedBox(height: AppSpacing.md),
-                        Row(
-                          children: [
-                            Expanded(
-                              child: OutlinedButton(
-                                style: OutlinedButton.styleFrom(
-                                  padding: const EdgeInsets.symmetric(
-                                    vertical: AppSpacing.md,
-                                  ),
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(
-                                      AppRadius.md,
-                                    ),
-                                  ),
-                                  side: const BorderSide(
-                                    color: AppColors.inputOutline,
-                                  ),
-                                ),
-                                onPressed: () => _showMessage(
-                                  'Apple sign-in is not connected yet.',
-                                ),
-                                child: Row(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  children: const [
-                                    Text(
-                                      '',
-                                      style: TextStyle(
-                                        fontWeight: FontWeight.bold,
-                                        fontSize: 18,
-                                      ),
-                                    ),
-                                    SizedBox(width: AppSpacing.sm),
-                                    Text('Sign in with Apple'),
-                                  ],
-                                ),
-                              ),
+                        SizedBox(
+                          height: 40,
+                          width: double.infinity,
+                          child: FilledButton(
+                            style: FilledButton.styleFrom(
+                              backgroundColor: Colors.black,
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(horizontal: 12),
+                              shape: const StadiumBorder(),
                             ),
-                          ],
+                            onPressed: () => _showMessage(
+                              'Apple sign-in is not connected yet.',
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                SvgPicture.asset(
+                                  'assets/icons/apple.svg',
+                                  width: 16,
+                                  height: 19,
+                                ),
+                                const SizedBox(width: 8),
+                                const Text(
+                                  'Sign in with Apple',
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
                         ),
                         const SizedBox(height: AppSpacing.xl),
                         Row(
