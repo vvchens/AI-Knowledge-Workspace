@@ -236,6 +236,65 @@ Alembic is responsible for evolving the schema.
 
 ---
 
+# 8a. Authentication Tables (`users`, `auth_sessions`)
+
+Authentication state is split across two tables. This split is intentional:
+
+- `users` — durable identity record (one row per local user)
+- `auth_sessions` — OAuth / provider linkage metadata (NOT session state)
+
+The application session itself is **kept in process memory** and is **not** persisted to the database. See `docs/architecture/ARCHITECTURE.md` § Authentication and `docs/phase0/PHASE0_DESIGN_BASELINE.md` § 8 for the full design.
+
+## `users`
+
+```text
+id                  UUID, PK
+provider            String(32),  not null            -- Phase 1: always 'firebase'
+provider_user_id    String(128), not null
+firebase_uid        String(128), nullable, unique
+email               String(320), nullable
+display_name        String(255), nullable
+created_at          timestamptz, not null
+updated_at          timestamptz, not null
+
+UNIQUE (provider, provider_user_id)
+```
+
+Notes:
+
+- `(provider, provider_user_id)` is the durable key that links a Firebase identity to a local user.
+- `firebase_uid` mirrors `provider_user_id` in the Firebase-only Phase 1; the column is retained so that future providers do not require a schema migration.
+- Business roles are NOT stored on this row. They are stored in `project_memberships`.
+- `email` and `display_name` are populated from the Firebase ID token at login; they are display hints, not authoritative identity data.
+
+## `auth_sessions`
+
+```text
+id                   UUID, PK
+user_id              UUID, FK -> users.id, indexed
+provider             String(32),  not null
+provider_session_id  String(128), not null
+linked_at            timestamptz, not null, default now()
+last_seen_at         timestamptz, not null, default now()
+```
+
+Notes:
+
+- One row records "this provider identity has been linked to this local user" — for audit and re-binding.
+- This table does **not** store the application session token, its expiration, or its revocation state. Those live in the application process memory.
+- `last_seen_at` is updated on every successful session resolution.
+
+## Migration history
+
+| Revision              | Description                                       |
+|-----------------------|---------------------------------------------------|
+| `20260825_0001`       | Initial: creates `users` and `auth_sessions`      |
+| `20260905_0002`       | Removes application session state from `auth_sessions` |
+
+The `20260905_0002` migration removes the session state columns from the original table. Application session state is now held by the process-local `InMemorySessionStore` and is never written to SQL.
+
+---
+
 # 9. Seed Data
 
 Schema migrations and application seed data MUST be treated separately.

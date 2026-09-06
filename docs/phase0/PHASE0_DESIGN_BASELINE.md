@@ -152,27 +152,43 @@ Phase 0 的主要交付物包括：
 
 #### users
 
-- id
-- auth_provider
+- id (UUID)
+- provider
 - provider_user_id
-- firebase_uid (nullable)
+- firebase_uid (nullable, **unique**)
 - email
-- email_verified
 - display_name
-- avatar_url
-- locale
-- status
-- last_login_at
+- avatar_url (nullable)
+- email_verified (boolean)
+- status (active / disabled)
+- last_login_at (timestamp)
 - created_at
 - updated_at
 
-说明：
+说明:
 
-- `auth_provider` 用于记录身份来源，如 `firebase`、`clerk`、`auth0` 或 `local`
-- `provider_user_id` 是第三方身份供应商中的用户唯一 ID
-- `firebase_uid` 仅用于 Firebase 场景，便于与 Firebase Admin SDK 直接对接
-- `email`、`display_name` 等字段可由 provider 回调同步，但必须经过最小必要字段校验
-- 用户的业务角色不应直接存放在 `users` 表中，而应通过 `project_memberships` 绑定到具体 Project
+- `provider` 用于记录身份来源,Phase 1 固定为 `firebase`
+- `provider_user_id` 是 Firebase 颁发的稳定 uid
+- `firebase_uid` 与 `provider_user_id` 在 Firebase 场景下相同,但保留字段以便未来接入其他 provider
+- `(provider, provider_user_id)` 联合唯一,保证同一 provider identity 只能绑定一个本地 user
+- 用户的业务角色不应直接存放在 `users` 表中,而应通过 `project_memberships` 绑定到具体 Project
+
+#### auth_sessions
+
+> **职责**:OAuth / provider 链接元数据,**不是 session 状态**。详见第 8 节。
+
+- id (UUID)
+- user_id (FK → users.id)
+- provider
+- provider_session_id(provider 在该用户上的稳定 id)
+- linked_at (timestamp)
+- last_seen_at (timestamp)
+
+字段含义:
+
+- 每次成功用某 provider 登录后,记录一行"该 Firebase identity 已链接到该本地 user"
+- 用于审计(谁通过哪个 provider 链接过)、重新绑定、跨进程重启保留登录记录
+- 当前 backend 仍在使用这张表存 session 状态(`session_token`、`expires_at`、`revoked_at`),后续 sprint 需迁移,详见第 8.9 节
 
 #### projects
 
@@ -269,54 +285,117 @@ Phase 0 的主要交付物包括：
 
 ## 8. 认证与身份提供商接入方案
 
-### 8.1 总体策略
+### 8.1 当前已选定的方案
 
-建议采用“双层模型”：
+Phase 1 采用 **Firebase Authentication + 后端 opaque session** 的双层模型,并已经选定 Firebase 为唯一身份提供商。
 
-1. 身份层：由 Firebase / Auth0 / Clerk 等外部提供商负责认证与 token 颁发
-2. 应用层：由 FastAPI 负责验证 token、绑定 internal user、执行 Project 级授权
-
-这意味着：
-
-- 用户不再依赖本地密码体系作为唯一认证入口
-- 本地 `users` 表保存的是“已认证的应用用户”记录，而非认证凭据本身
-- 原始 token / secret 不应保存到数据库中
-- `project_memberships` 继续负责“用户在某个 Project 中的权限”
-
-### 8.2 推荐抽象
-
-```text
-AuthProvider
- ├── FirebaseAuthProvider
- ├── Auth0AuthProvider
- ├── ClerkAuthProvider
- └── LocalAuthProvider
+```
+Flutter (Firebase SDK)
+   │  sign in via email/password / Google / Apple
+   ▼
+Firebase Authentication
+   │  ID token (JWT)
+   ▼
+Flutter
+   │  POST /api/v1/auth/firebase/session  (Firebase ID token)
+   ▼
+FastAPI
+   │  firebase_admin.verify_id_token(...)
+   │  resolve or create local User
+   │  issue opaque session, set HttpOnly cookie
+   ▼
+Subsequent API calls
+   │  Cookie: akw_session
+   ▼
+FastAPI dependency: resolve session → User
 ```
 
-统一能力：
+### 8.2 双层模型
 
-- verify_token()
-- get_provider_user_id()
-- sync_user_profile()
-- get_user_email()
-- get_user_display_name()
+1. 身份层:Firebase 负责认证、token 颁发、OAuth(Google / Apple / Email)
+2. 应用层:FastAPI 负责校验 Firebase ID token、绑定 internal user、签发应用 session
 
-### 8.3 Firebase 接入建议
+这意味着:
 
-当使用 Firebase 时：
+- 用户不再依赖本地密码体系作为唯一认证入口
+- 本地 `users` 表保存的是"已认证的应用用户"记录,而非认证凭据本身
+- Firebase ID token 是短生命周期凭证,后端只在登录瞬间验证它一次,后续 API 调用依赖后端签发的 session cookie
+- Provider 链接元数据持久化在 `auth_sessions` 表;后端 session 本身只存活在应用进程内存中,进程重启后需要重新登录
 
-- 前端使用 Firebase Auth 获取 ID token
-- 后端用 Firebase Admin SDK 验证 token
-- token 验证成功后，按 `firebase_uid` 或 `provider_user_id` 在本地用户表中匹配或创建用户
-- 仅保存最小必要的用户资料，不保存秘密或长生命周期 token
-- 通过 `project_memberships` 给用户授权，而不是在 `users` 表里写死全局角色
+### 8.3 抽象接口
 
-### 8.4 安全要求
+```text
+BaseAuthProvider
+ └── FirebaseAuthProvider   (Phase 1 唯一实现)
+```
+
+Phase 1 不引入 Clerk / Auth0 / Local 等替代 provider。如果未来需要替换,新的实现只需继承 `BaseAuthProvider` 并在配置层切换依赖注入。
+
+统一能力:
+
+- `verify_token(token) -> AuthUser`
+- `get_provider_user_id()`
+- `get_user_email()`
+- `get_user_display_name()`
+
+### 8.4 Firebase 接入细节
+
+后端:
+
+- 使用 `firebase_admin` Python SDK
+- `firebase_auth.verify_id_token(token, check_revoked=True)`
+- 凭证加载优先级:`FIREBASE_SERVICE_ACCOUNT_JSON` 环境变量 > `FIREBASE_SERVICE_ACCOUNT_FILE` 路径 > Application Default Credentials
+- Project ID 通过 `FIREBASE_PROJECT_ID` 显式传入
+- Service Account JSON 走环境变量/CI Secrets,绝不写入源码
+
+前端:
+
+- `firebase_core` + `firebase_auth`
+- Web 端 Firebase 配置通过 `--dart-define` 注入,值来自根 `.env`(dev)或 GitHub Actions Secrets(prod)
+- Android / iOS 端运行 `flutterfire configure` 生成 `firebase_options.dart`,该文件不提交
+- 登录页暴露三个入口:Email/Password、Google、Apple,三者最终都通过 Firebase SDK 拿到 ID token
+
+### 8.5 三类登录入口
+
+| 入口        | Phase 1 状态                                                   |
+|-------------|----------------------------------------------------------------|
+| Email/Password | 已启用(Firebase Auth 原生)                                 |
+| Google      | 通过 Firebase SDK 启用 OAuth;前端按钮 UI 已就位              |
+| Apple       | 通过 Firebase SDK 启用 OAuth;前端按钮 UI 已就位              |
+
+Google / Apple 都由 Firebase SDK 走 OAuth,后端不需要单独实现 provider-specific 流程。
+
+### 8.6 应用 Session 语义
+
+| 维度       | 取值                                                            |
+|------------|-----------------------------------------------------------------|
+| 标识       | opaque 随机 token(不是 JWT,也不是 Firebase ID token)            |
+| 生命周期   | 可配置,默认 168 小时(7 天)                                    |
+| 传输       | `HttpOnly` cookie,名称 `akw_session`,`SameSite=Lax`,prod 下 `Secure` |
+| 存储       | **应用进程内存**,不写数据库                                    |
+| 撤销作用域 | 当前进程生命周期                                                |
+| 刷新       | session 过期后客户端重新走 Firebase 登录                       |
+
+### 8.7 auth_sessions 表的职责
+
+`auth_sessions` 表保存的是 **OAuth / provider 链接元数据**,不是 session 本身:
+
+- 哪个 Firebase identity(provider + provider_user_id + firebase_uid)链接到了哪个本地 user
+- 链接时间
+- 用于审计和重新绑定
+
+### 8.8 安全要求
 
 - 不信任 client 端的角色和权限状态
 - 所有项目数据访问必须经过服务端 permission check
-- 记录关键认证操作：login、logout、membership change、role escalation
-- 对未验证 provider token 直接拒绝访问
+- 记录关键认证操作:login、logout、membership change、role escalation
+- 对未验证 Firebase ID token 直接拒绝访问
+- Service Account JSON 不入数据库,只走环境变量/CI Secrets
+- Session cookie 必须 `HttpOnly` + `SameSite=Lax`,生产环境 `Secure=true`
+
+### 8.9 代码与文档同步说明
+
+实现状态：`auth_sessions` 仅保留 provider 链接元数据；`AuthService` 使用进程内存存储 session token、过期和撤销状态。对应数据库变更由 Alembic migration `20260905_0002` 完成。
 
 ---
 

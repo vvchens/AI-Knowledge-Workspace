@@ -140,6 +140,37 @@ A question with expected behavior/results used to measure RAG/LLM quality.
 
 The system shall support user authentication.
 
+### FR-001a Identity provider
+
+The system shall delegate primary authentication to Firebase Authentication.
+
+Firebase is the **only** identity provider required by Phase 1. It issues and verifies ID tokens for:
+
+- Email / password
+- Google (OAuth via Firebase SDK)
+- Apple (OAuth via Firebase SDK)
+- Additional providers may be enabled in Firebase without backend changes
+
+The backend MUST verify Firebase ID tokens through `firebase_admin` before issuing any application-level session. Direct user-managed credentials (local passwords, API keys, JWT secrets) SHALL NOT be used as the primary login path.
+
+### FR-001b Application session
+
+After Firebase ID token verification, the backend issues a short-lived application session.
+
+Target semantics:
+
+- Session lifetime: configurable, default 168 hours (7 days)
+- Session identifier: opaque token, not the Firebase ID token itself
+- Session transport: `HttpOnly` + `SameSite=Lax` cookie (`Secure` enabled in production)
+- Session storage: **kept in-memory on the application server** (not persisted to the database); revocation is therefore scoped to the current process lifetime, and OAuth/provider linkage metadata is persisted separately
+- Provider linkage metadata (provider, provider user id, firebase uid, linked_at) is persisted in `auth_sessions` for audit and re-binding purposes only — it is NOT a session store
+
+The reason for this split is that OAuth linkage is durable business data, while session lifetime is an ephemeral operational concern.
+
+### FR-001c Single Sign-On
+
+The login UI shall expose Google and Apple sign-in entry points in addition to email/password. All three paths terminate in Firebase Authentication; the backend treats them uniformly once a Firebase ID token is presented.
+
 ### FR-002 RBAC
 
 The system shall enforce role- and Project-based authorization.

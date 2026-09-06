@@ -97,10 +97,9 @@ def current_user(
 def logout(
     response: Response,
     session_token: str | None = Cookie(default=None, alias=settings.session_cookie_name),
-    db: Session = Depends(get_db_session),
 ) -> dict[str, bool]:
     if session_token:
-        auth_service.revoke_session(db, session_token)
+        auth_service.revoke_session(session_token)
 
     response.delete_cookie(settings.session_cookie_name)
 

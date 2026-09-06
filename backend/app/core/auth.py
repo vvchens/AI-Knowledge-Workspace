@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 import json
 import secrets
+from threading import RLock
 from typing import Literal
 
 import firebase_admin
@@ -13,7 +14,6 @@ from sqlalchemy import and_, select
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
-from app.models.auth_session import AuthSession
 from app.models.user import User
 
 AuthProviderName = Literal["firebase", "clerk", "auth0", "local"]
@@ -45,6 +45,47 @@ class SessionPayload:
     session_token: str
     expires_at: datetime
     ttl_seconds: int
+
+
+@dataclass(frozen=True)
+class StoredSession:
+    user_id: str
+    expires_at: datetime
+
+
+class InMemorySessionStore:
+    """Process-local session storage; session state is never persisted in SQL."""
+
+    def __init__(self) -> None:
+        self._sessions: dict[str, StoredSession] = {}
+        self._lock = RLock()
+
+    def create(self, session_token: str, user_id: str, expires_at: datetime) -> None:
+        with self._lock:
+            self._remove_expired_locked(_utcnow())
+            self._sessions[session_token] = StoredSession(user_id, expires_at)
+
+    def get_user_id(self, session_token: str) -> str | None:
+        now = _utcnow()
+        with self._lock:
+            session = self._sessions.get(session_token)
+            if session is None or session.expires_at <= now:
+                self._sessions.pop(session_token, None)
+                return None
+            return session.user_id
+
+    def revoke(self, session_token: str) -> None:
+        with self._lock:
+            self._sessions.pop(session_token, None)
+
+    def _remove_expired_locked(self, now: datetime) -> None:
+        expired_tokens = [
+            token
+            for token, session in self._sessions.items()
+            if session.expires_at <= now
+        ]
+        for token in expired_tokens:
+            del self._sessions[token]
 
 
 class BaseAuthProvider:
@@ -105,8 +146,13 @@ class FirebaseAuthProvider(BaseAuthProvider):
 
 
 class AuthService:
-    def __init__(self, provider: BaseAuthProvider | None = None):
+    def __init__(
+        self,
+        provider: BaseAuthProvider | None = None,
+        session_store: InMemorySessionStore | None = None,
+    ):
         self.provider = provider or FirebaseAuthProvider()
+        self.session_store = session_store or InMemorySessionStore()
 
     def authenticate(self, token: str) -> AuthUser:
         return self.provider.verify_token(token)
@@ -142,21 +188,12 @@ class AuthService:
         db.refresh(user)
         return user
 
-    def create_session(self, db: Session, user: User) -> SessionPayload:
+    def create_session(self, user: User) -> SessionPayload:
         now = _utcnow()
         expires_at = now + timedelta(hours=settings.session_ttl_hours)
         session_token = secrets.token_urlsafe(48)
 
-        session = AuthSession(
-            user_id=user.id,
-            session_token=session_token,
-            provider=user.provider,
-            provider_session_id=user.provider_user_id,
-            expires_at=expires_at,
-            last_seen_at=now,
-        )
-        db.add(session)
-        db.commit()
+        self.session_store.create(session_token, user.id, expires_at)
 
         return SessionPayload(
             session_token=session_token,
@@ -167,34 +204,12 @@ class AuthService:
     def authenticate_and_create_session(self, db: Session, token: str) -> tuple[User, SessionPayload]:
         auth_user = self.authenticate(token)
         user = self.get_or_create_user(db, auth_user)
-        session_payload = self.create_session(db, user)
+        session_payload = self.create_session(user)
         return user, session_payload
 
     def get_user_from_session(self, db: Session, session_token: str) -> User | None:
-        now = _utcnow()
-        session = db.scalar(
-            select(AuthSession).where(
-                and_(
-                    AuthSession.session_token == session_token,
-                    AuthSession.expires_at > now,
-                    AuthSession.revoked_at.is_(None),
-                )
-            )
-        )
-        if session is None:
-            return None
+        user_id = self.session_store.get_user_id(session_token)
+        return db.get(User, user_id) if user_id is not None else None
 
-        session.last_seen_at = now
-        db.add(session)
-        db.commit()
-
-        return db.get(User, session.user_id)
-
-    def revoke_session(self, db: Session, session_token: str) -> None:
-        session = db.scalar(select(AuthSession).where(AuthSession.session_token == session_token))
-        if session is None or session.revoked_at is not None:
-            return
-
-        session.revoked_at = _utcnow()
-        db.add(session)
-        db.commit()
+    def revoke_session(self, session_token: str) -> None:
+        self.session_store.revoke(session_token)
