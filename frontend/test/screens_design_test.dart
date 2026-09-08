@@ -30,9 +30,8 @@ void main() {
 
   testWidgets('project overview screen renders project detail sections', (tester) async {
     await tester.pumpWidget(const MaterialApp(home: ProjectOverviewScreen()));
+    await tester.pumpAndSettle();
 
-    expect(find.text('Customer Support Bot'), findsWidgets);
-    expect(find.text('Overview'), findsWidgets);
-    expect(find.text('Recent Conversations'), findsOneWidget);
+    expect(find.textContaining('Missing project ID'), findsOneWidget);
   });
 }

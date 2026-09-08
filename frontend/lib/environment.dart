@@ -4,6 +4,10 @@
 /// Flutter application. Do not place real credentials directly in source.
 abstract final class AppEnvironment {
   static const isDev = bool.fromEnvironment('DEV', defaultValue: false);
+  static const apiBaseUrl = String.fromEnvironment(
+    'API_BASE_URL',
+    defaultValue: 'http://localhost:8000/api/v1',
+  );
 
   static const firebaseApiKey = String.fromEnvironment('FIREBASE_API_KEY');
   static const firebaseAuthDomain = String.fromEnvironment(

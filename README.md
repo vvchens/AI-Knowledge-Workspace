@@ -22,6 +22,11 @@ Local development runs directly on host machine (no Docker):
 # backend
 cd backend
 pip install -r requirements.txt
+# Set one of these before starting the backend:
+# FIREBASE_SERVICE_ACCOUNT_FILE=/absolute/path/firebase-adminsdk.json
+# FIREBASE_SERVICE_ACCOUNT_JSON={...}
+# Optional: tolerate small client/server clock drift (0-60 seconds, default 5).
+# FIREBASE_CLOCK_SKEW_SECONDS=5
 uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 
 # frontend (new terminal)

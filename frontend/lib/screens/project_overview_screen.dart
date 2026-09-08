@@ -2,13 +2,50 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import '../components/app_components.dart';
+import '../services/api_client.dart';
 import '../theme/app_tokens.dart';
 
-class ProjectOverviewScreen extends StatelessWidget {
-  const ProjectOverviewScreen({super.key});
+class ProjectOverviewScreen extends StatefulWidget {
+  const ProjectOverviewScreen({super.key, this.projectId});
+
+  final String? projectId;
+
+  @override
+  State<ProjectOverviewScreen> createState() => _ProjectOverviewScreenState();
+}
+
+class _ProjectOverviewScreenState extends State<ProjectOverviewScreen> {
+  late final Future<ProjectRecord> _projectFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    _projectFuture = widget.projectId == null
+        ? Future.error(const FormatException('Missing project ID.'))
+        : ApiClient.instance.fetchProject(widget.projectId!);
+  }
 
   @override
   Widget build(BuildContext context) {
+    return FutureBuilder<ProjectRecord>(
+      future: _projectFuture,
+      builder: (context, snapshot) {
+        if (snapshot.connectionState != ConnectionState.done) {
+          return const Scaffold(body: Center(child: CircularProgressIndicator()));
+        }
+        if (snapshot.hasError || !snapshot.hasData) {
+          return Scaffold(
+            body: Center(
+              child: Text(snapshot.error?.toString() ?? 'Project could not be loaded.'),
+            ),
+          );
+        }
+        return _buildScaffold(context, snapshot.data!);
+      },
+    );
+  }
+
+  Widget _buildScaffold(BuildContext context, ProjectRecord project) {
     return Scaffold(
       body: LayoutBuilder(
         builder: (context, constraints) {
@@ -19,8 +56,8 @@ class ProjectOverviewScreen extends StatelessWidget {
               Expanded(
                 child: Column(
                   children: [
-                    _buildHeader(context, isDesktop),
-                    Expanded(child: _buildContent(context)),
+                    _buildHeader(context, isDesktop, project),
+                    Expanded(child: _buildContent(context, project)),
                     if (!isDesktop) _buildMobileNavigation(context),
                   ],
                 ),
@@ -137,7 +174,7 @@ class ProjectOverviewScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildHeader(BuildContext context, bool isDesktop) {
+  Widget _buildHeader(BuildContext context, bool isDesktop, ProjectRecord project) {
     final theme = Theme.of(context);
 
     return Material(
@@ -163,10 +200,10 @@ class ProjectOverviewScreen extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('Customer Support Bot', style: theme.textTheme.headlineSmall),
+                    Text(project.name, style: theme.textTheme.headlineSmall),
                     const SizedBox(height: AppSpacing.xs),
                     Text(
-                      'Workspace Platform',
+                      project.description.isEmpty ? 'Project' : project.description,
                       style: theme.textTheme.bodyMedium?.copyWith(
                         color: theme.colorScheme.onSurfaceVariant,
                       ),
@@ -185,7 +222,7 @@ class ProjectOverviewScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildContent(BuildContext context) {
+  Widget _buildContent(BuildContext context, ProjectRecord project) {
     return SingleChildScrollView(
       padding: const EdgeInsets.fromLTRB(
         AppSpacing.lg,
@@ -201,19 +238,19 @@ class ProjectOverviewScreen extends StatelessWidget {
             Row(
               children: [
                 Expanded(
-                  child: _MiniStatCard(label: 'Documents', value: '47', detail: '892KB total size'),
+                  child: _MiniStatCard(label: 'Documents', value: '${project.documents}', detail: 'Indexed documents'),
                 ),
                 const SizedBox(width: AppSpacing.lg),
                 Expanded(
-                  child: _MiniStatCard(label: 'Active Users', value: '12', detail: '3 departments'),
+                  child: _MiniStatCard(label: 'Members', value: '${project.members}', detail: 'Project members'),
                 ),
                 const SizedBox(width: AppSpacing.lg),
                 Expanded(
-                  child: _MiniStatCard(label: 'Conversations', value: '892', detail: 'All sessions'),
+                  child: _MiniStatCard(label: 'Status', value: project.status, detail: 'Current project status'),
                 ),
                 const SizedBox(width: AppSpacing.lg),
                 Expanded(
-                  child: _MiniStatCard(label: 'Avg Response Time', value: '1.2s', detail: 'Avg token time'),
+                  child: _MiniStatCard(label: 'Updated', value: _dateLabel(project.updatedAt), detail: 'Last database update'),
                 ),
               ],
             ),
@@ -225,16 +262,16 @@ class ProjectOverviewScreen extends StatelessWidget {
                     ? Row(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Expanded(flex: 2, child: _RecentConversationsPanel()),
+                          const Expanded(flex: 2, child: _EmptyPanel(title: 'Recent Conversations', message: 'No conversations are available yet.')),
                           const SizedBox(width: AppSpacing.lg),
-                          Expanded(child: _ConfigurationSummaryPanel()),
+                          const Expanded(child: _EmptyPanel(title: 'Configuration', message: 'Project configuration is not available yet.')),
                         ],
                       )
                     : Column(
                         children: [
-                          _RecentConversationsPanel(),
+                          const _EmptyPanel(title: 'Recent Conversations', message: 'No conversations are available yet.'),
                           const SizedBox(height: AppSpacing.lg),
-                          _ConfigurationSummaryPanel(),
+                          const _EmptyPanel(title: 'Configuration', message: 'Project configuration is not available yet.'),
                         ],
                       );
               },
@@ -264,6 +301,31 @@ class ProjectOverviewScreen extends StatelessWidget {
     ScaffoldMessenger.of(context)
       ..hideCurrentSnackBar()
       ..showSnackBar(SnackBar(content: Text(message)));
+  }
+}
+
+String _dateLabel(DateTime date) => '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
+
+class _EmptyPanel extends StatelessWidget {
+  const _EmptyPanel({required this.title, required this.message});
+
+  final String title;
+  final String message;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return AppCard(
+      padding: const EdgeInsets.all(AppSpacing.lg),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(title, style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700)),
+          const SizedBox(height: AppSpacing.lg),
+          Text(message, style: theme.textTheme.bodyMedium?.copyWith(color: theme.colorScheme.onSurfaceVariant)),
+        ],
+      ),
+    );
   }
 }
 
@@ -306,167 +368,6 @@ class _MiniStatCard extends StatelessWidget {
       ),
     );
   }
-}
-
-class _RecentConversationsPanel extends StatelessWidget {
-  const _RecentConversationsPanel();
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final conversations = [
-      _ConversationItem(
-        user: 'user_902',
-        time: '5m ago',
-        question: 'How do I return a damaged box?',
-        answer: 'You can file a return request under your account settings.',
-      ),
-      _ConversationItem(
-        user: 'user_451',
-        time: '18m ago',
-        question: 'Is international shipping free?',
-        answer: 'International orders qualify for free delivery if...',
-      ),
-      _ConversationItem(
-        user: 'user_122',
-        time: '1h ago',
-        question: 'What is your refund policy?',
-        answer: 'Refunds are processed within 5-7 business days to the...',
-      ),
-    ];
-
-    return AppCard(
-      padding: const EdgeInsets.all(AppSpacing.lg),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'Recent Conversations',
-            style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700),
-          ),
-          const SizedBox(height: AppSpacing.lg),
-          ...conversations.map(
-            (conversation) => Padding(
-              padding: const EdgeInsets.only(bottom: AppSpacing.lg),
-              child: Container(
-                padding: const EdgeInsets.all(AppSpacing.md),
-                decoration: BoxDecoration(
-                  color: theme.colorScheme.surfaceContainerHighest,
-                  borderRadius: BorderRadius.circular(AppRadius.md),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Expanded(
-                          child: Text(
-                            conversation.user,
-                            style: theme.textTheme.labelLarge?.copyWith(
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                        ),
-                        Text(
-                          conversation.time,
-                          style: theme.textTheme.labelMedium?.copyWith(
-                            color: theme.colorScheme.onSurfaceVariant,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: AppSpacing.sm),
-                    Text('Q: ${conversation.question}', style: theme.textTheme.bodyMedium),
-                    const SizedBox(height: AppSpacing.xs),
-                    Text('A: ${conversation.answer}', style: theme.textTheme.bodyMedium),
-                  ],
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _ConversationItem {
-  const _ConversationItem({
-    required this.user,
-    required this.time,
-    required this.question,
-    required this.answer,
-  });
-
-  final String user;
-  final String time;
-  final String question;
-  final String answer;
-}
-
-class _ConfigurationSummaryPanel extends StatelessWidget {
-  const _ConfigurationSummaryPanel();
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final config = [
-      _ConfigRow(label: 'LLM Model', value: 'gpt-4o-mini (OpenAI)'),
-      _ConfigRow(label: 'Embedding Model', value: 'text-embedding-3-small'),
-      _ConfigRow(label: 'Retrieval Strategy', value: 'Cosine Similarity + Re-ranker'),
-      _ConfigRow(label: 'Chunk Size Settings', value: '512 tokens (10% overlap)'),
-      _ConfigRow(label: 'Temperature', value: '0.2 (Focused & Grounded)'),
-      _ConfigRow(label: 'System Guardrails', value: 'Enabled (PII Masking, Toxicity)'),
-    ];
-
-    return AppCard(
-      padding: const EdgeInsets.all(AppSpacing.lg),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'Configuration Summary',
-            style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700),
-          ),
-          const SizedBox(height: AppSpacing.lg),
-          ...config.map(
-            (item) => Padding(
-              padding: const EdgeInsets.only(bottom: AppSpacing.md),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Expanded(
-                    child: Text(
-                      item.label,
-                      style: theme.textTheme.bodyMedium?.copyWith(
-                        color: theme.colorScheme.onSurfaceVariant,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: AppSpacing.md),
-                  Expanded(
-                    flex: 2,
-                    child: Text(
-                      item.value,
-                      textAlign: TextAlign.right,
-                      style: theme.textTheme.bodyMedium,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _ConfigRow {
-  const _ConfigRow({required this.label, required this.value});
-
-  final String label;
-  final String value;
 }
 
 class _NavigationItem extends StatelessWidget {

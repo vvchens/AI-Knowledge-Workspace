@@ -4,14 +4,11 @@ from fastapi import APIRouter, Cookie, Depends, HTTPException, Response, status
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
-from app.core.auth import AuthError, AuthService
+from app.core.auth import AuthError, auth_service
 from app.core.config import settings
 from app.core.database import get_db_session
 
 router = APIRouter(prefix="/auth", tags=["auth"])
-auth_service = AuthService()
-
-
 class FirebaseSessionRequest(BaseModel):
     id_token: str = Field(min_length=1)
 

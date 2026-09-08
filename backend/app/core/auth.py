@@ -3,6 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 import json
+import logging
 import secrets
 from threading import RLock
 from typing import Literal
@@ -24,6 +25,7 @@ def _utcnow() -> datetime:
 
 
 _firebase_app: firebase_admin.App | None = None
+logger = logging.getLogger(__name__)
 
 
 class AuthError(ValueError):
@@ -126,9 +128,15 @@ class FirebaseAuthProvider(BaseAuthProvider):
             decoded = firebase_auth.verify_id_token(
                 token,
                 app=self._app,
-                check_revoked=True,
+                check_revoked=settings.firebase_check_revoked,
+                clock_skew_seconds=settings.firebase_clock_skew_seconds,
             )
         except Exception as exc:  # Firebase SDK raises multiple auth exceptions.
+            logger.warning(
+                "Firebase ID token verification failed: %s: %s",
+                type(exc).__name__,
+                exc,
+            )
             raise AuthError("Invalid Firebase token") from exc
 
         firebase_uid = str(decoded["uid"])
@@ -213,3 +221,6 @@ class AuthService:
 
     def revoke_session(self, session_token: str) -> None:
         self.session_store.revoke(session_token)
+
+
+auth_service = AuthService()

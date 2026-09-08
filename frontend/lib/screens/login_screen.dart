@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 
 import '../components/app_components.dart';
 import '../environment.dart';
+import '../services/api_client.dart';
 import '../theme/app_tokens.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -69,6 +70,11 @@ class _LoginScreenState extends State<LoginScreen> {
         email: email,
         password: password,
       );
+      final idToken = await auth.currentUser?.getIdToken(true);
+      if (idToken == null) {
+        throw const FormatException('Firebase did not return an ID token.');
+      }
+      await ApiClient.instance.createBackendSession(idToken);
 
       if (!mounted) return;
       context.go('/projects');

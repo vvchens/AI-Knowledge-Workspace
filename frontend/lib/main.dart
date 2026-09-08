@@ -56,7 +56,9 @@ class App extends StatelessWidget {
         ),
         GoRoute(
           path: '/project-overview',
-          builder: (context, state) => const ProjectOverviewScreen(),
+          builder: (context, state) => ProjectOverviewScreen(
+            projectId: state.uri.queryParameters['projectId'],
+          ),
         ),
       ],
     );

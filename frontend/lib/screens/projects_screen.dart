@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 
 import '../components/app_components.dart';
+import '../services/api_client.dart';
 import '../theme/app_tokens.dart';
 
 class ProjectsScreen extends StatefulWidget {
@@ -13,63 +15,134 @@ class ProjectsScreen extends StatefulWidget {
 class _ProjectsScreenState extends State<ProjectsScreen> {
   final _searchController = TextEditingController();
   String _selectedFilter = 'All';
+  List<ProjectRecord> _projects = const [];
+  bool _isLoading = true;
+  String? _loadError;
 
-  static const _projects = [
-    _Project(
-      name: 'Customer Support Bot',
-      description:
-          'Automated general answering bot using fresh documentation index.',
-      status: 'Active',
-      documents: 47,
-      members: 12,
-      updated: 'Updated 2 hours ago',
-    ),
-    _Project(
-      name: 'Sales Assistant Agent',
-      description:
-          'RAG powered assistant with access to sales sheets, pricing and CRM scripts.',
-      status: 'Active',
-      documents: 124,
-      members: 8,
-      updated: 'Updated 1 day ago',
-    ),
-    _Project(
-      name: 'Legal Compliance Auditor',
-      description:
-          'Verifies company docs against standardized regulatory lists automatically.',
-      status: 'Error',
-      documents: 8,
-      members: 3,
-      updated: 'Updated 3 days ago',
-    ),
-    _Project(
-      name: 'HR Portal Knowledge Search',
-      description:
-          'Internal employee workspace lookup bot for benefit guides and policies.',
-      status: 'Active',
-      documents: 98,
-      members: 16,
-      updated: 'Updated 1 week ago',
-    ),
-    _Project(
-      name: 'Developer Documentation Hub',
-      description:
-          'Vercel integration docs and API index for engineering onboarding.',
-      status: 'Active',
-      documents: 312,
-      members: 24,
-      updated: 'Updated 2 weeks ago',
-    ),
-    _Project(
-      name: 'Archived Campaign Copywriter',
-      description:
-          'Previous generation writing assistant. Read-only legacy workspace.',
-      status: 'Archived',
-      documents: 14,
-      members: 2,
-      updated: 'Updated 1 month ago',
-    ),
-  ];
+  @override
+  void initState() {
+    super.initState();
+    _loadProjects();
+  }
+
+  Future<void> _loadProjects() async {
+    setState(() {
+      _isLoading = true;
+      _loadError = null;
+    });
+    try {
+      final projects = await ApiClient.instance.fetchProjects();
+      if (!mounted) return;
+      setState(() => _projects = projects);
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _loadError = 'Projects could not be loaded.');
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  Future<void> _showCreateProjectDialog() async {
+    final nameController = TextEditingController();
+    final descriptionController = TextEditingController();
+    final created = await showDialog<ProjectRecord>(
+      context: context,
+      builder: (dialogContext) {
+        var isSubmitting = false;
+        String? formError;
+
+        return StatefulBuilder(
+          builder: (context, setDialogState) => AlertDialog(
+            title: const Text('New Project'),
+            content: SizedBox(
+              width: 420,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  TextField(
+                    controller: nameController,
+                    autofocus: true,
+                    enabled: !isSubmitting,
+                    decoration: InputDecoration(
+                      labelText: 'Name',
+                      errorText: formError,
+                    ),
+                  ),
+                  const SizedBox(height: AppSpacing.md),
+                  TextField(
+                    controller: descriptionController,
+                    maxLines: 3,
+                    enabled: !isSubmitting,
+                    decoration: const InputDecoration(labelText: 'Description'),
+                  ),
+                ],
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: isSubmitting
+                    ? null
+                    : () => Navigator.of(dialogContext).pop(),
+                child: const Text('Cancel'),
+              ),
+              FilledButton(
+                onPressed: isSubmitting
+                    ? null
+                    : () async {
+                        final name = nameController.text.trim();
+                        if (name.isEmpty) {
+                          setDialogState(
+                              () => formError = 'Enter a project name.');
+                          return;
+                        }
+
+                        setDialogState(() {
+                          isSubmitting = true;
+                          formError = null;
+                        });
+                        try {
+                          final project =
+                              await ApiClient.instance.createProject(
+                            name: name,
+                            description: descriptionController.text.trim(),
+                          );
+                          if (dialogContext.mounted) {
+                            Navigator.of(dialogContext).pop(project);
+                          }
+                        } catch (_) {
+                          if (dialogContext.mounted) {
+                            setDialogState(() {
+                              isSubmitting = false;
+                              formError = 'Project could not be created.';
+                            });
+                          }
+                        }
+                      },
+                child: isSubmitting
+                    ? const SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Text('Create'),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+    nameController.dispose();
+    descriptionController.dispose();
+    if (created != null && mounted) {
+      setState(() => _projects = [created, ..._projects]);
+    }
+  }
+
+  void _showMessage(String message) {
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(SnackBar(content: Text(message)));
+  }
 
   @override
   void dispose() {
@@ -77,7 +150,7 @@ class _ProjectsScreenState extends State<ProjectsScreen> {
     super.dispose();
   }
 
-  List<_Project> get _filteredProjects {
+  List<ProjectRecord> get _filteredProjects {
     final query = _searchController.text.trim().toLowerCase();
     return _projects.where((project) {
       final matchesFilter = _selectedFilter == 'All' ||
@@ -87,12 +160,6 @@ class _ProjectsScreenState extends State<ProjectsScreen> {
           project.description.toLowerCase().contains(query);
       return matchesFilter && matchesQuery;
     }).toList();
-  }
-
-  void _showNotConnectedMessage(String message) {
-    ScaffoldMessenger.of(context)
-      ..hideCurrentSnackBar()
-      ..showSnackBar(SnackBar(content: Text(message)));
   }
 
   @override
@@ -156,7 +223,7 @@ class _ProjectsScreenState extends State<ProjectsScreen> {
               icon: Icons.dashboard_outlined,
               label: 'Dashboard',
               onTap: () =>
-                  _showNotConnectedMessage('Dashboard is not connected yet.'),
+                  () => _showMessage('Dashboard is not available yet.'),
             ),
             _NavigationItem(
               icon: Icons.folder_open_outlined,
@@ -168,20 +235,18 @@ class _ProjectsScreenState extends State<ProjectsScreen> {
               icon: Icons.description_outlined,
               label: 'Documents',
               onTap: () =>
-                  _showNotConnectedMessage('Documents is not connected yet.'),
+                  () => _showMessage('Documents is not available yet.'),
             ),
             const Spacer(),
             _NavigationItem(
               icon: Icons.people_outline,
               label: 'Users',
-              onTap: () =>
-                  _showNotConnectedMessage('Users is not connected yet.'),
+              onTap: () => () => _showMessage('Users is not available yet.'),
             ),
             _NavigationItem(
               icon: Icons.settings_outlined,
               label: 'Settings',
-              onTap: () =>
-                  _showNotConnectedMessage('Settings is not connected yet.'),
+              onTap: () => () => _showMessage('Settings is not available yet.'),
             ),
             const Divider(height: 1),
             Padding(
@@ -263,9 +328,7 @@ class _ProjectsScreenState extends State<ProjectsScreen> {
               AppButton(
                 label: 'New Project',
                 icon: Icons.add,
-                onPressed: () => _showNotConnectedMessage(
-                  'Project creation is not connected yet.',
-                ),
+                onPressed: _showCreateProjectDialog,
               ),
             ],
           ),
@@ -277,6 +340,25 @@ class _ProjectsScreenState extends State<ProjectsScreen> {
   Widget _buildContent(BuildContext context) {
     final theme = Theme.of(context);
     final projects = _filteredProjects;
+    if (_isLoading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+    if (_loadError != null) {
+      return Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(_loadError!),
+            const SizedBox(height: AppSpacing.md),
+            OutlinedButton.icon(
+              onPressed: _loadProjects,
+              icon: const Icon(Icons.refresh),
+              label: const Text('Retry'),
+            ),
+          ],
+        ),
+      );
+    }
     return SingleChildScrollView(
       padding: const EdgeInsets.fromLTRB(
         AppSpacing.lg,
@@ -360,18 +442,17 @@ class _ProjectsScreenState extends State<ProjectsScreen> {
     );
   }
 
-  Widget _buildProjectCard(BuildContext context, _Project project) {
+  Widget _buildProjectCard(BuildContext context, ProjectRecord project) {
     final theme = Theme.of(context);
     final statusColor = switch (project.status) {
-      'Active' => AppColors.success,
-      'Error' => theme.colorScheme.error,
+      'active' => AppColors.success,
+      'error' => theme.colorScheme.error,
       _ => theme.colorScheme.onSurfaceVariant,
     };
     return AppCard(
       padding: const EdgeInsets.all(AppSpacing.lg),
       child: InkWell(
-        onTap: () =>
-            _showNotConnectedMessage('${project.name} is not connected yet.'),
+        onTap: () => context.go('/project-overview?projectId=${project.id}'),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -387,7 +468,8 @@ class _ProjectsScreenState extends State<ProjectsScreen> {
                     ),
                   ),
                 ),
-                AppStatusChip(label: project.status, color: statusColor),
+                AppStatusChip(
+                    label: _titleCase(project.status), color: statusColor),
               ],
             ),
             const SizedBox(height: AppSpacing.md),
@@ -417,7 +499,7 @@ class _ProjectsScreenState extends State<ProjectsScreen> {
             ),
             const SizedBox(height: AppSpacing.lg),
             Text(
-              project.updated,
+              'Updated ${_relativeDate(project.updatedAt)}',
               style: theme.textTheme.labelMedium?.copyWith(
                 color: theme.colorScheme.onSurfaceVariant,
               ),
@@ -438,7 +520,7 @@ class _ProjectsScreenState extends State<ProjectsScreen> {
           Text('No projects found', style: theme.textTheme.titleLarge),
           const SizedBox(height: AppSpacing.xs),
           Text(
-            'Try a different search or status filter.',
+            'Create a project to get started.',
             style: theme.textTheme.bodyMedium?.copyWith(
               color: theme.colorScheme.onSurfaceVariant,
             ),
@@ -453,7 +535,9 @@ class _ProjectsScreenState extends State<ProjectsScreen> {
       selectedIndex: 0,
       onDestinationSelected: (index) {
         if (index != 0) {
-          _showNotConnectedMessage('This section is not connected yet.');
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('This section is not available yet.')),
+          );
         }
       },
       destinations: const [
@@ -479,22 +563,17 @@ class _ProjectsScreenState extends State<ProjectsScreen> {
   }
 }
 
-class _Project {
-  const _Project({
-    required this.name,
-    required this.description,
-    required this.status,
-    required this.documents,
-    required this.members,
-    required this.updated,
-  });
+String _titleCase(String value) => value.isEmpty
+    ? value
+    : '${value[0].toUpperCase()}${value.substring(1).toLowerCase()}';
 
-  final String name;
-  final String description;
-  final String status;
-  final int documents;
-  final int members;
-  final String updated;
+String _relativeDate(DateTime date) {
+  final difference = DateTime.now().toUtc().difference(date.toLocal());
+  if (difference.inMinutes < 1) return 'just now';
+  if (difference.inHours < 1) return '${difference.inMinutes}m ago';
+  if (difference.inDays < 1) return '${difference.inHours}h ago';
+  if (difference.inDays < 7) return '${difference.inDays}d ago';
+  return '${(difference.inDays / 7).floor()}w ago';
 }
 
 class _ProjectMetric extends StatelessWidget {
