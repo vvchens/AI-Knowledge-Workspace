@@ -1,4 +1,5 @@
 import 'package:dio/dio.dart';
+import 'package:file_picker/file_picker.dart';
 
 import '../environment.dart';
 
@@ -31,6 +32,38 @@ class ProjectRecord {
   final String status;
   final int documents;
   final int members;
+  final DateTime updatedAt;
+}
+
+class DocumentRecord {
+  const DocumentRecord({
+    required this.id,
+    required this.name,
+    required this.contentType,
+    required this.sizeBytes,
+    required this.status,
+    required this.createdAt,
+    required this.updatedAt,
+  });
+
+  factory DocumentRecord.fromJson(Map<String, dynamic> json) {
+    return DocumentRecord(
+      id: json['id'] as String,
+      name: json['name'] as String,
+      contentType: json['content_type'] as String?,
+      sizeBytes: json['size_bytes'] as int,
+      status: json['status'] as String,
+      createdAt: DateTime.parse(json['created_at'] as String),
+      updatedAt: DateTime.parse(json['updated_at'] as String),
+    );
+  }
+
+  final String id;
+  final String name;
+  final String? contentType;
+  final int sizeBytes;
+  final String status;
+  final DateTime createdAt;
   final DateTime updatedAt;
 }
 
@@ -82,6 +115,38 @@ class ApiClient {
       options: Options(headers: _sessionHeaders),
     );
     return ProjectRecord.fromJson(response.data!);
+  }
+
+  Future<List<DocumentRecord>> fetchDocuments(String projectId) async {
+    final response = await _dio.get<Map<String, dynamic>>(
+      '/projects/$projectId/documents',
+      options: Options(headers: _sessionHeaders),
+    );
+    final documents = response.data?['documents'] as List<dynamic>? ?? const [];
+    return documents
+        .map((document) => DocumentRecord.fromJson(document as Map<String, dynamic>))
+        .toList();
+  }
+
+  Future<DocumentRecord> uploadDocument({
+    required String projectId,
+    required PlatformFile file,
+  }) async {
+    final multipart = file.bytes != null
+        ? MultipartFile.fromBytes(file.bytes!, filename: file.name)
+        : file.path == null
+            ? null
+            : await MultipartFile.fromFile(file.path!, filename: file.name);
+    if (multipart == null) {
+      throw const FormatException('Selected file is not readable.');
+    }
+
+    final response = await _dio.post<Map<String, dynamic>>(
+      '/projects/$projectId/documents',
+      data: FormData.fromMap({'file': multipart}),
+      options: Options(headers: _sessionHeaders),
+    );
+    return DocumentRecord.fromJson(response.data!);
   }
 
   Map<String, String> get _sessionHeaders => _sessionToken == null

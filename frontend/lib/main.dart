@@ -8,6 +8,7 @@ import 'firebase_options.dart';
 import 'screens/dashboard_screen.dart';
 import 'screens/login_screen.dart';
 import 'screens/project_overview_screen.dart';
+import 'screens/project_documents_screen.dart';
 import 'screens/projects_screen.dart';
 import 'theme/app_theme.dart';
 
@@ -57,6 +58,12 @@ class App extends StatelessWidget {
         GoRoute(
           path: '/project-overview',
           builder: (context, state) => ProjectOverviewScreen(
+            projectId: state.uri.queryParameters['projectId'],
+          ),
+        ),
+        GoRoute(
+          path: '/project-documents',
+          builder: (context, state) => ProjectDocumentsScreen(
             projectId: state.uri.queryParameters['projectId'],
           ),
         ),

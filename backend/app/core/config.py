@@ -33,7 +33,7 @@ class Settings(BaseSettings):
         validation_alias="FIREBASE_CHECK_REVOKED",
     )
     firebase_clock_skew_seconds: int = Field(
-        default=5,
+        default=10,
         validation_alias="FIREBASE_CLOCK_SKEW_SECONDS",
         ge=0,
         le=60,
@@ -42,6 +42,10 @@ class Settings(BaseSettings):
     session_ttl_hours: int = Field(default=168, validation_alias="SESSION_TTL_HOURS")
     session_cookie_name: str = Field(default="akw_session", validation_alias="SESSION_COOKIE_NAME")
     session_cookie_secure: bool = Field(default=False, validation_alias="SESSION_COOKIE_SECURE")
+    upload_dir: str = Field(
+        default=str(PROJECT_ROOT / "backend" / "uploads"),
+        validation_alias="UPLOAD_DIR",
+    )
 
     model_config = SettingsConfigDict(
         env_file=(str(PROJECT_ROOT / ".env"), ".env"),

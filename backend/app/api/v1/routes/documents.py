@@ -1,0 +1,123 @@
+from __future__ import annotations
+
+import shutil
+from pathlib import Path
+from uuid import uuid4
+
+from fastapi import APIRouter, Depends, File, Header, HTTPException, UploadFile, status
+from pydantic import BaseModel
+from sqlalchemy import select
+from sqlalchemy.orm import Session
+
+from app.core.auth import auth_service
+from app.core.config import settings
+from app.core.database import get_db_session
+from app.models.document import Document
+from app.models.project import Project
+from app.models.user import User
+
+
+router = APIRouter(prefix="/projects/{project_id}/documents", tags=["documents"])
+
+
+class DocumentResponse(BaseModel):
+    id: str
+    name: str
+    content_type: str | None
+    size_bytes: int
+    status: str
+    created_at: str
+    updated_at: str
+
+
+class DocumentListResponse(BaseModel):
+    documents: list[DocumentResponse]
+
+
+def _current_user(
+    authorization: str | None = Header(default=None),
+    db: Session = Depends(get_db_session),
+) -> User:
+    session_token = None
+    if authorization and authorization.lower().startswith("bearer "):
+        session_token = authorization[7:].strip()
+    if not session_token:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Missing session")
+
+    user = auth_service.get_user_from_session(db, session_token)
+    if user is None:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid session")
+    return user
+
+
+def _project_for_user(project_id: str, user: User, db: Session) -> Project:
+    project = db.scalar(select(Project).where(Project.id == project_id, Project.owner_id == user.id))
+    if project is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Project not found")
+    return project
+
+
+def _to_response(document: Document) -> DocumentResponse:
+    return DocumentResponse(
+        id=document.id,
+        name=document.name,
+        content_type=document.content_type,
+        size_bytes=document.size_bytes,
+        status=document.status,
+        created_at=document.created_at.isoformat(),
+        updated_at=document.updated_at.isoformat(),
+    )
+
+
+@router.get("", response_model=DocumentListResponse)
+def list_documents(
+    project_id: str,
+    db: Session = Depends(get_db_session),
+    user: User = Depends(_current_user),
+) -> DocumentListResponse:
+    _project_for_user(project_id, user, db)
+    documents = db.scalars(
+        select(Document)
+        .where(Document.project_id == project_id, Document.owner_id == user.id)
+        .order_by(Document.created_at.desc())
+    ).all()
+    return DocumentListResponse(documents=[_to_response(document) for document in documents])
+
+
+@router.post("", response_model=DocumentResponse, status_code=status.HTTP_201_CREATED)
+def upload_document(
+    project_id: str,
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db_session),
+    user: User = Depends(_current_user),
+) -> DocumentResponse:
+    _project_for_user(project_id, user, db)
+    original_name = Path(file.filename or "document").name
+    if not original_name:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Missing file name")
+
+    upload_root = Path(settings.upload_dir).resolve()
+    project_dir = (upload_root / project_id).resolve()
+    if upload_root not in project_dir.parents:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid upload path")
+    project_dir.mkdir(parents=True, exist_ok=True)
+
+    stored_name = f"{uuid4()}_{original_name}"
+    stored_path = project_dir / stored_name
+    with stored_path.open("wb") as destination:
+        shutil.copyfileobj(file.file, destination)
+    size_bytes = stored_path.stat().st_size
+
+    document = Document(
+        project_id=project_id,
+        owner_id=user.id,
+        name=original_name,
+        storage_path=str(stored_path),
+        content_type=file.content_type,
+        size_bytes=size_bytes,
+        status="processing",
+    )
+    db.add(document)
+    db.commit()
+    db.refresh(document)
+    return _to_response(document)

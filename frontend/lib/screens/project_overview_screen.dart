@@ -31,12 +31,14 @@ class _ProjectOverviewScreenState extends State<ProjectOverviewScreen> {
       future: _projectFuture,
       builder: (context, snapshot) {
         if (snapshot.connectionState != ConnectionState.done) {
-          return const Scaffold(body: Center(child: CircularProgressIndicator()));
+          return const Scaffold(
+              body: Center(child: CircularProgressIndicator()));
         }
         if (snapshot.hasError || !snapshot.hasData) {
           return Scaffold(
             body: Center(
-              child: Text(snapshot.error?.toString() ?? 'Project could not be loaded.'),
+              child: Text(
+                  snapshot.error?.toString() ?? 'Project could not be loaded.'),
             ),
           );
         }
@@ -88,7 +90,8 @@ class _ProjectOverviewScreenState extends State<ProjectOverviewScreen> {
               ),
               child: Row(
                 children: [
-                  Icon(Icons.psychology_outlined, color: theme.colorScheme.primary),
+                  Icon(Icons.psychology_outlined,
+                      color: theme.colorScheme.primary),
                   const SizedBox(width: AppSpacing.sm),
                   Expanded(
                     child: Text(
@@ -114,13 +117,15 @@ class _ProjectOverviewScreenState extends State<ProjectOverviewScreen> {
             _NavigationItem(
               icon: Icons.description_outlined,
               label: 'Documents',
-              selected: true,
-              onTap: () {},
+              onTap: () => context.go(
+                '/project-documents?projectId=${widget.projectId}',
+              ),
             ),
             _NavigationItem(
               icon: Icons.assessment_outlined,
               label: 'Evaluation',
-              onTap: () => _showMessage(context, 'Evaluation is not connected yet.'),
+              onTap: () =>
+                  _showMessage(context, 'Evaluation is not connected yet.'),
             ),
             const Spacer(),
             _NavigationItem(
@@ -131,7 +136,8 @@ class _ProjectOverviewScreenState extends State<ProjectOverviewScreen> {
             _NavigationItem(
               icon: Icons.settings_outlined,
               label: 'Settings',
-              onTap: () => _showMessage(context, 'Settings is not connected yet.'),
+              onTap: () =>
+                  _showMessage(context, 'Settings is not connected yet.'),
             ),
             const Divider(height: 1),
             Padding(
@@ -154,7 +160,8 @@ class _ProjectOverviewScreenState extends State<ProjectOverviewScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text('Sarah Jenkins', style: theme.textTheme.labelMedium),
+                        Text('Sarah Jenkins',
+                            style: theme.textTheme.labelMedium),
                         Text(
                           'Platform Admin',
                           style: theme.textTheme.labelMedium?.copyWith(
@@ -164,7 +171,8 @@ class _ProjectOverviewScreenState extends State<ProjectOverviewScreen> {
                       ],
                     ),
                   ),
-                  Icon(Icons.more_horiz, color: theme.colorScheme.onSurfaceVariant),
+                  Icon(Icons.more_horiz,
+                      color: theme.colorScheme.onSurfaceVariant),
                 ],
               ),
             ),
@@ -174,7 +182,8 @@ class _ProjectOverviewScreenState extends State<ProjectOverviewScreen> {
     );
   }
 
-  Widget _buildHeader(BuildContext context, bool isDesktop, ProjectRecord project) {
+  Widget _buildHeader(
+      BuildContext context, bool isDesktop, ProjectRecord project) {
     final theme = Theme.of(context);
 
     return Material(
@@ -203,7 +212,9 @@ class _ProjectOverviewScreenState extends State<ProjectOverviewScreen> {
                     Text(project.name, style: theme.textTheme.headlineSmall),
                     const SizedBox(height: AppSpacing.xs),
                     Text(
-                      project.description.isEmpty ? 'Project' : project.description,
+                      project.description.isEmpty
+                          ? 'Project'
+                          : project.description,
                       style: theme.textTheme.bodyMedium?.copyWith(
                         color: theme.colorScheme.onSurfaceVariant,
                       ),
@@ -238,19 +249,31 @@ class _ProjectOverviewScreenState extends State<ProjectOverviewScreen> {
             Row(
               children: [
                 Expanded(
-                  child: _MiniStatCard(label: 'Documents', value: '${project.documents}', detail: 'Indexed documents'),
+                  child: _MiniStatCard(
+                      label: 'Documents',
+                      value: '${project.documents}',
+                      detail: 'Indexed documents'),
                 ),
                 const SizedBox(width: AppSpacing.lg),
                 Expanded(
-                  child: _MiniStatCard(label: 'Members', value: '${project.members}', detail: 'Project members'),
+                  child: _MiniStatCard(
+                      label: 'Members',
+                      value: '${project.members}',
+                      detail: 'Project members'),
                 ),
                 const SizedBox(width: AppSpacing.lg),
                 Expanded(
-                  child: _MiniStatCard(label: 'Status', value: project.status, detail: 'Current project status'),
+                  child: _MiniStatCard(
+                      label: 'Status',
+                      value: project.status,
+                      detail: 'Current project status'),
                 ),
                 const SizedBox(width: AppSpacing.lg),
                 Expanded(
-                  child: _MiniStatCard(label: 'Updated', value: _dateLabel(project.updatedAt), detail: 'Last database update'),
+                  child: _MiniStatCard(
+                      label: 'Updated',
+                      value: _dateLabel(project.updatedAt),
+                      detail: 'Last database update'),
                 ),
               ],
             ),
@@ -262,16 +285,30 @@ class _ProjectOverviewScreenState extends State<ProjectOverviewScreen> {
                     ? Row(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Expanded(flex: 2, child: _EmptyPanel(title: 'Recent Conversations', message: 'No conversations are available yet.')),
+                          const Expanded(
+                              flex: 2,
+                              child: _EmptyPanel(
+                                  title: 'Recent Conversations',
+                                  message:
+                                      'No conversations are available yet.')),
                           const SizedBox(width: AppSpacing.lg),
-                          const Expanded(child: _EmptyPanel(title: 'Configuration', message: 'Project configuration is not available yet.')),
+                          const Expanded(
+                              child: _EmptyPanel(
+                                  title: 'Configuration',
+                                  message:
+                                      'Project configuration is not available yet.')),
                         ],
                       )
                     : Column(
                         children: [
-                          const _EmptyPanel(title: 'Recent Conversations', message: 'No conversations are available yet.'),
+                          const _EmptyPanel(
+                              title: 'Recent Conversations',
+                              message: 'No conversations are available yet.'),
                           const SizedBox(height: AppSpacing.lg),
-                          const _EmptyPanel(title: 'Configuration', message: 'Project configuration is not available yet.'),
+                          const _EmptyPanel(
+                              title: 'Configuration',
+                              message:
+                                  'Project configuration is not available yet.'),
                         ],
                       );
               },
@@ -289,10 +326,14 @@ class _ProjectOverviewScreenState extends State<ProjectOverviewScreen> {
         if (index == 0) context.go('/dashboard');
       },
       destinations: const [
-        NavigationDestination(icon: Icon(Icons.dashboard_outlined), label: 'Dashboard'),
-        NavigationDestination(icon: Icon(Icons.folder_open_outlined), label: 'Projects'),
-        NavigationDestination(icon: Icon(Icons.chat_bubble_outline), label: 'Chat'),
-        NavigationDestination(icon: Icon(Icons.person_outline), label: 'Profile'),
+        NavigationDestination(
+            icon: Icon(Icons.dashboard_outlined), label: 'Dashboard'),
+        NavigationDestination(
+            icon: Icon(Icons.folder_open_outlined), label: 'Projects'),
+        NavigationDestination(
+            icon: Icon(Icons.chat_bubble_outline), label: 'Chat'),
+        NavigationDestination(
+            icon: Icon(Icons.person_outline), label: 'Profile'),
       ],
     );
   }
@@ -304,7 +345,8 @@ class _ProjectOverviewScreenState extends State<ProjectOverviewScreen> {
   }
 }
 
-String _dateLabel(DateTime date) => '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
+String _dateLabel(DateTime date) =>
+    '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
 
 class _EmptyPanel extends StatelessWidget {
   const _EmptyPanel({required this.title, required this.message});
@@ -320,9 +362,13 @@ class _EmptyPanel extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(title, style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700)),
+          Text(title,
+              style: theme.textTheme.titleLarge
+                  ?.copyWith(fontWeight: FontWeight.w700)),
           const SizedBox(height: AppSpacing.lg),
-          Text(message, style: theme.textTheme.bodyMedium?.copyWith(color: theme.colorScheme.onSurfaceVariant)),
+          Text(message,
+              style: theme.textTheme.bodyMedium
+                  ?.copyWith(color: theme.colorScheme.onSurfaceVariant)),
         ],
       ),
     );
@@ -374,41 +420,41 @@ class _NavigationItem extends StatelessWidget {
   const _NavigationItem({
     required this.icon,
     required this.label,
-    this.selected = false,
     required this.onTap,
   });
 
   final IconData icon;
   final String label;
-  final bool selected;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md, vertical: AppSpacing.xs),
+      padding: const EdgeInsets.symmetric(
+          horizontal: AppSpacing.md, vertical: AppSpacing.xs),
       child: Material(
-        color: selected ? theme.colorScheme.primaryContainer : Colors.transparent,
+        color: Colors.transparent,
         borderRadius: BorderRadius.circular(AppRadius.md),
         child: InkWell(
           onTap: onTap,
           borderRadius: BorderRadius.circular(AppRadius.md),
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md, vertical: AppSpacing.md),
+            padding: const EdgeInsets.symmetric(
+                horizontal: AppSpacing.md, vertical: AppSpacing.md),
             child: Row(
               children: [
                 Icon(
                   icon,
-                  color: selected ? theme.colorScheme.onPrimaryContainer : theme.colorScheme.onSurfaceVariant,
+                  color: theme.colorScheme.onSurfaceVariant,
                 ),
                 const SizedBox(width: AppSpacing.md),
                 Expanded(
                   child: Text(
                     label,
                     style: theme.textTheme.bodyMedium?.copyWith(
-                      color: selected ? theme.colorScheme.onPrimaryContainer : theme.colorScheme.onSurface,
-                      fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+                      color: theme.colorScheme.onSurface,
+                      fontWeight: FontWeight.w500,
                     ),
                   ),
                 ),
