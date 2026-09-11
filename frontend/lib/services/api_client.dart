@@ -68,12 +68,25 @@ class DocumentRecord {
 }
 
 class ApiClient {
-  ApiClient._() : _dio = Dio(BaseOptions(baseUrl: AppEnvironment.apiBaseUrl));
+  ApiClient._() : _dio = Dio(BaseOptions(baseUrl: AppEnvironment.apiBaseUrl)) {
+    _dio.interceptors.add(
+      InterceptorsWrapper(
+        onError: (error, handler) async {
+          if (error.response?.statusCode == 401) {
+            _sessionToken = null;
+            await onSessionExpired?.call();
+          }
+          handler.next(error);
+        },
+      ),
+    );
+  }
 
   static final ApiClient instance = ApiClient._();
 
   final Dio _dio;
   String? _sessionToken;
+  Future<void> Function()? onSessionExpired;
 
   Future<void> createBackendSession(String firebaseIdToken) async {
     final response = await _dio.post<Map<String, dynamic>>(

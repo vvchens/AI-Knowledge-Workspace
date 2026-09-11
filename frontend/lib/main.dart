@@ -1,3 +1,6 @@
+import 'dart:async';
+
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -5,6 +8,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import 'firebase_options.dart';
+import 'services/api_client.dart';
 import 'screens/dashboard_screen.dart';
 import 'screens/login_screen.dart';
 import 'screens/project_overview_screen.dart';
@@ -20,6 +24,7 @@ Future<void> main() async {
       await Firebase.initializeApp(
         options: DefaultFirebaseOptions.currentPlatform,
       );
+      await _restoreBackendSession();
     } else {
       debugPrint(
         'Native Firebase config is not ready yet. Run flutterfire configure for Android/iOS.',
@@ -30,6 +35,17 @@ Future<void> main() async {
   }
 
   runApp(const ProviderScope(child: App()));
+}
+
+Future<void> _restoreBackendSession() async {
+  final auth = FirebaseAuth.instance;
+  final user = await auth.authStateChanges().first;
+  if (user == null) return;
+
+  final idToken = await user.getIdToken(true);
+  if (idToken == null) return;
+
+  await ApiClient.instance.createBackendSession(idToken);
 }
 
 class App extends StatelessWidget {
@@ -69,6 +85,19 @@ class App extends StatelessWidget {
         ),
       ],
     );
+
+    ApiClient.instance.onSessionExpired = () async {
+      try {
+        if (Firebase.apps.isNotEmpty) {
+          await FirebaseAuth.instance.signOut();
+        }
+      } catch (error) {
+        debugPrint('Firebase sign-out after session expiry failed: $error');
+      }
+      if (router.state.uri.path != '/login') {
+        router.go('/login');
+      }
+    };
 
     return MaterialApp.router(
       title: 'AI Knowledge Workspace',
