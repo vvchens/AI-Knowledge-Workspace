@@ -7,11 +7,14 @@ from sqlalchemy.exc import SQLAlchemyError
 from app.api.v1.router import api_router
 from app.core.config import settings
 from app.core.database import database
+from app.services.embedding_schema import validate_embedding_schema
 
 
 @asynccontextmanager
 async def lifespan(_: FastAPI):
     database.check_connection()
+    with database.session() as db:
+        validate_embedding_schema(db)
     yield
     database.close()
 

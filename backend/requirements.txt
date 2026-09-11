@@ -7,3 +7,5 @@ psycopg[binary]==3.2.3
 alembic==1.13.2
 firebase-admin==6.5.0
 python-multipart==0.0.9
+pypdf==5.1.0
+pgvector==0.3.6

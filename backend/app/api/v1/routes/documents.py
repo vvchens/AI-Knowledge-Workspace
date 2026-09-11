@@ -4,7 +4,7 @@ import shutil
 from pathlib import Path
 from uuid import uuid4
 
-from fastapi import APIRouter, Depends, File, Header, HTTPException, UploadFile, status
+from fastapi import APIRouter, BackgroundTasks, Depends, File, Header, HTTPException, UploadFile, status
 from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -15,6 +15,7 @@ from app.core.database import get_db_session
 from app.models.document import Document
 from app.models.project import Project
 from app.models.user import User
+from app.services.document_ingestion import process_document
 
 
 router = APIRouter(prefix="/projects/{project_id}/documents", tags=["documents"])
@@ -87,6 +88,7 @@ def list_documents(
 @router.post("", response_model=DocumentResponse, status_code=status.HTTP_201_CREATED)
 def upload_document(
     project_id: str,
+    background_tasks: BackgroundTasks,
     file: UploadFile = File(...),
     db: Session = Depends(get_db_session),
     user: User = Depends(_current_user),
@@ -95,6 +97,8 @@ def upload_document(
     original_name = Path(file.filename or "document").name
     if not original_name:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Missing file name")
+    if file.content_type != "application/pdf" and Path(original_name).suffix.lower() != ".pdf":
+        raise HTTPException(status_code=status.HTTP_415_UNSUPPORTED_MEDIA_TYPE, detail="Only PDF files are supported")
 
     upload_root = Path(settings.upload_dir).resolve()
     project_dir = (upload_root / project_id).resolve()
@@ -120,4 +124,5 @@ def upload_document(
     db.add(document)
     db.commit()
     db.refresh(document)
+    background_tasks.add_task(process_document, document.id)
     return _to_response(document)

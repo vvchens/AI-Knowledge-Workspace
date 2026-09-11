@@ -122,3 +122,6 @@ Desktop.ini
 temp/
 *.bak
 *.backup
+
+deploy-server/
+backend/uploads/
