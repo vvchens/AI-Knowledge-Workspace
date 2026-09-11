@@ -16,6 +16,10 @@ class ProjectOverviewScreen extends StatefulWidget {
 
 class _ProjectOverviewScreenState extends State<ProjectOverviewScreen> {
   late final Future<ProjectRecord> _projectFuture;
+  final _searchController = TextEditingController();
+  List<SearchResultRecord> _searchResults = const [];
+  bool _isSearching = false;
+  String? _searchError;
 
   @override
   void initState() {
@@ -23,6 +27,36 @@ class _ProjectOverviewScreenState extends State<ProjectOverviewScreen> {
     _projectFuture = widget.projectId == null
         ? Future.error(const FormatException('Missing project ID.'))
         : ApiClient.instance.fetchProject(widget.projectId!);
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _searchProject() async {
+    final projectId = widget.projectId;
+    final query = _searchController.text.trim();
+    if (projectId == null || query.isEmpty || _isSearching) return;
+
+    setState(() {
+      _isSearching = true;
+      _searchError = null;
+    });
+    try {
+      final results = await ApiClient.instance.searchProject(
+        projectId: projectId,
+        query: query,
+      );
+      if (!mounted) return;
+      setState(() => _searchResults = results);
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _searchError = 'Search could not be completed.');
+    } finally {
+      if (mounted) setState(() => _isSearching = false);
+    }
   }
 
   @override
@@ -278,6 +312,8 @@ class _ProjectOverviewScreenState extends State<ProjectOverviewScreen> {
               ],
             ),
             const SizedBox(height: AppSpacing.xxl),
+            _buildSearchPanel(context),
+            const SizedBox(height: AppSpacing.xxl),
             LayoutBuilder(
               builder: (context, constraints) {
                 final isWide = constraints.maxWidth >= 860;
@@ -315,6 +351,61 @@ class _ProjectOverviewScreenState extends State<ProjectOverviewScreen> {
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildSearchPanel(BuildContext context) {
+    final theme = Theme.of(context);
+    return AppCard(
+      padding: const EdgeInsets.all(AppSpacing.lg),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text('Search knowledge', style: theme.textTheme.titleLarge),
+          const SizedBox(height: AppSpacing.sm),
+          TextField(
+            controller: _searchController,
+            onSubmitted: (_) => _searchProject(),
+            decoration: InputDecoration(
+              hintText: 'Ask about this project...',
+              prefixIcon: const Icon(Icons.search),
+              suffixIcon: IconButton(
+                onPressed: _isSearching ? null : _searchProject,
+                icon: _isSearching
+                    ? const SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.arrow_forward),
+                tooltip: 'Search',
+              ),
+            ),
+          ),
+          if (_searchError != null) ...[
+            const SizedBox(height: AppSpacing.md),
+            Text(_searchError!, style: TextStyle(color: theme.colorScheme.error)),
+          ] else if (_searchResults.isNotEmpty) ...[
+            const SizedBox(height: AppSpacing.lg),
+            ..._searchResults.map((result) => Padding(
+                  padding: const EdgeInsets.only(bottom: AppSpacing.md),
+                  child: ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    leading: const Icon(Icons.description_outlined),
+                    title: Text(result.documentName),
+                    subtitle: Text(
+                      '${result.content}${result.pageNumber == null ? '' : '\nPage ${result.pageNumber}'}',
+                      maxLines: 4,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                )),
+          ] else if (_searchController.text.trim().isNotEmpty && !_isSearching) ...[
+            const SizedBox(height: AppSpacing.lg),
+            Text('No matching knowledge found.', style: theme.textTheme.bodyMedium),
+          ],
+        ],
       ),
     );
   }

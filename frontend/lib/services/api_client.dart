@@ -67,6 +67,32 @@ class DocumentRecord {
   final DateTime updatedAt;
 }
 
+class SearchResultRecord {
+  const SearchResultRecord({
+    required this.documentId,
+    required this.documentName,
+    required this.content,
+    required this.pageNumber,
+    required this.score,
+  });
+
+  factory SearchResultRecord.fromJson(Map<String, dynamic> json) {
+    return SearchResultRecord(
+      documentId: json['document_id'] as String,
+      documentName: json['document_name'] as String,
+      content: json['content'] as String,
+      pageNumber: json['page_number'] as int?,
+      score: (json['score'] as num).toDouble(),
+    );
+  }
+
+  final String documentId;
+  final String documentName;
+  final String content;
+  final int? pageNumber;
+  final double score;
+}
+
 class ApiClient {
   ApiClient._() : _dio = Dio(BaseOptions(baseUrl: AppEnvironment.apiBaseUrl)) {
     _dio.interceptors.add(
@@ -107,6 +133,22 @@ class ApiClient {
     final projects = response.data?['projects'] as List<dynamic>? ?? const [];
     return projects
         .map((project) => ProjectRecord.fromJson(project as Map<String, dynamic>))
+        .toList();
+  }
+
+  Future<List<SearchResultRecord>> searchProject({
+    required String projectId,
+    required String query,
+    int limit = 10,
+  }) async {
+    final response = await _dio.post<Map<String, dynamic>>(
+      '/projects/$projectId/search',
+      data: {'query': query, 'limit': limit},
+      options: Options(headers: _sessionHeaders),
+    );
+    final results = response.data?['results'] as List<dynamic>? ?? const [];
+    return results
+        .map((result) => SearchResultRecord.fromJson(result as Map<String, dynamic>))
         .toList();
   }
 
