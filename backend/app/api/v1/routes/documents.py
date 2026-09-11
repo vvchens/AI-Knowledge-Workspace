@@ -126,3 +126,42 @@ def upload_document(
     db.refresh(document)
     background_tasks.add_task(process_document, document.id)
     return _to_response(document)
+
+
+@router.delete(
+    "/{document_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    response_model=None,
+)
+def delete_document(
+    project_id: str,
+    document_id: str,
+    db: Session = Depends(get_db_session),
+    user: User = Depends(_current_user),
+) -> None:
+    _project_for_user(project_id, user, db)
+    document = db.scalar(
+        select(Document).where(
+            Document.id == document_id,
+            Document.project_id == project_id,
+            Document.owner_id == user.id,
+        )
+    )
+    if document is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Document not found")
+
+    upload_root = Path(settings.upload_dir).resolve()
+    stored_path = Path(document.storage_path).resolve()
+    if upload_root not in stored_path.parents:
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Invalid document storage path")
+
+    try:
+        stored_path.unlink(missing_ok=True)
+    except OSError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Document file could not be deleted",
+        ) from exc
+
+    db.delete(document)
+    db.commit()

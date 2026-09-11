@@ -141,6 +141,16 @@ class ApiClient {
         .toList();
   }
 
+  Future<void> deleteDocument({
+    required String projectId,
+    required String documentId,
+  }) async {
+    await _dio.delete<void>(
+      '/projects/$projectId/documents/$documentId',
+      options: Options(headers: _sessionHeaders),
+    );
+  }
+
   Future<DocumentRecord> uploadDocument({
     required String projectId,
     required PlatformFile file,

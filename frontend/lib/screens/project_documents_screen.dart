@@ -23,6 +23,7 @@ class _ProjectDocumentsScreenState extends State<ProjectDocumentsScreen> {
   List<DocumentRecord> _documents = const [];
   bool _isLoadingDocuments = true;
   bool _isUploading = false;
+  String? _deletingDocumentId;
   String? _documentError;
 
   @override
@@ -80,6 +81,49 @@ class _ProjectDocumentsScreenState extends State<ProjectDocumentsScreen> {
       setState(() => _documentError = 'Document could not be uploaded.');
     } finally {
       if (mounted) setState(() => _isUploading = false);
+    }
+  }
+
+  Future<void> _deleteDocument(DocumentRecord document) async {
+    final projectId = widget.projectId;
+    if (projectId == null || _deletingDocumentId != null) return;
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Delete document?'),
+        content: Text('"${document.name}" and its indexed content will be permanently deleted.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+
+    setState(() {
+      _deletingDocumentId = document.id;
+      _documentError = null;
+    });
+    try {
+      await ApiClient.instance.deleteDocument(
+        projectId: projectId,
+        documentId: document.id,
+      );
+      if (!mounted) return;
+      setState(() => _documents.removeWhere((item) => item.id == document.id));
+      _showMessage('Document deleted.');
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _documentError = 'Document could not be deleted.');
+    } finally {
+      if (mounted) setState(() => _deletingDocumentId = null);
     }
   }
 
@@ -473,6 +517,20 @@ class _ProjectDocumentsScreenState extends State<ProjectDocumentsScreen> {
             ),
           ),
           AppStatusChip(label: _titleCase(document.status), color: statusColor),
+          const SizedBox(width: AppSpacing.sm),
+          IconButton(
+            onPressed: _deletingDocumentId == null
+                ? () => _deleteDocument(document)
+                : null,
+            icon: _deletingDocumentId == document.id
+                ? const SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Icon(Icons.delete_outline),
+            tooltip: 'Delete document',
+          ),
         ],
       ),
     );
