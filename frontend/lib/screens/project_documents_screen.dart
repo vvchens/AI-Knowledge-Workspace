@@ -61,6 +61,8 @@ class _ProjectDocumentsScreenState extends State<ProjectDocumentsScreen> {
     final result = await FilePicker.platform.pickFiles(
       allowMultiple: false,
       withData: kIsWeb,
+      type: FileType.custom,
+      allowedExtensions: const ['pdf', 'txt', 'md'],
     );
     if (result == null || result.files.isEmpty) return;
 

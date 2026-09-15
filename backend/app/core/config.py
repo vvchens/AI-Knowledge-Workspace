@@ -50,8 +50,8 @@ class Settings(BaseSettings):
     embedding_api_key: str | None = Field(default=None, validation_alias="EMBEDDING_API_KEY")
     embedding_model: str = Field(default="text-embedding-3-small", validation_alias="EMBEDDING_MODEL")
     embedding_dimensions: int = Field(default=1536, validation_alias="EMBEDDING_DIMENSIONS", gt=0)
-    document_chunk_size: int = Field(default=2000, validation_alias="DOCUMENT_CHUNK_SIZE", gt=0)
-    document_chunk_overlap: int = Field(default=200, validation_alias="DOCUMENT_CHUNK_OVERLAP", ge=0)
+    document_chunk_size: int = Field(default=1000, validation_alias="DOCUMENT_CHUNK_SIZE", gt=0)
+    document_chunk_overlap: int = Field(default=150, validation_alias="DOCUMENT_CHUNK_OVERLAP", ge=0)
 
     model_config = SettingsConfigDict(
         env_file=(str(PROJECT_ROOT / ".env"), ".env"),

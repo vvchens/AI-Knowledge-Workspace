@@ -74,7 +74,7 @@ def search_project(
         .where(
             Document.project_id == project_id,
             Document.owner_id == user.id,
-            Document.status == "indexed",
+            Document.status.in_(["COMPLETED", "completed", "indexed"]),
         )
         .order_by(distance)
         .limit(payload.limit)

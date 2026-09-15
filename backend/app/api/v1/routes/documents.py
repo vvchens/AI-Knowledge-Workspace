@@ -20,6 +20,13 @@ from app.services.document_ingestion import process_document
 
 router = APIRouter(prefix="/projects/{project_id}/documents", tags=["documents"])
 
+SUPPORTED_DOCUMENT_EXTENSIONS = {".pdf", ".txt", ".md"}
+SUPPORTED_DOCUMENT_CONTENT_TYPES = {
+    "application/pdf",
+    "text/plain",
+    "text/markdown",
+}
+
 
 class DocumentResponse(BaseModel):
     id: str
@@ -97,8 +104,12 @@ def upload_document(
     original_name = Path(file.filename or "document").name
     if not original_name:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Missing file name")
-    if file.content_type != "application/pdf" and Path(original_name).suffix.lower() != ".pdf":
-        raise HTTPException(status_code=status.HTTP_415_UNSUPPORTED_MEDIA_TYPE, detail="Only PDF files are supported")
+    extension = Path(original_name).suffix.lower()
+    if extension not in SUPPORTED_DOCUMENT_EXTENSIONS and file.content_type not in SUPPORTED_DOCUMENT_CONTENT_TYPES:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Only PDF, TXT, and Markdown files are supported",
+        )
 
     upload_root = Path(settings.upload_dir).resolve()
     project_dir = (upload_root / project_id).resolve()
@@ -119,7 +130,7 @@ def upload_document(
         storage_path=str(stored_path),
         content_type=file.content_type,
         size_bytes=size_bytes,
-        status="processing",
+        status="PROCESSING",
     )
     db.add(document)
     db.commit()
