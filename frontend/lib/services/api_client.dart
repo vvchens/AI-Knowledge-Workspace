@@ -93,6 +93,30 @@ class SearchResultRecord {
   final double score;
 }
 
+class SearchResponseRecord {
+  const SearchResponseRecord({
+    required this.rewrittenQuery,
+    required this.answer,
+    required this.results,
+  });
+
+  factory SearchResponseRecord.fromJson(Map<String, dynamic> json) {
+    final results = json['results'] as List<dynamic>? ?? const [];
+    return SearchResponseRecord(
+      rewrittenQuery: json['rewritten_query'] as String? ?? '',
+      answer: json['answer'] as String? ?? '',
+      results: results
+          .map((result) =>
+              SearchResultRecord.fromJson(result as Map<String, dynamic>))
+          .toList(),
+    );
+  }
+
+  final String rewrittenQuery;
+  final String answer;
+  final List<SearchResultRecord> results;
+}
+
 class ApiClient {
   ApiClient._() : _dio = Dio(BaseOptions(baseUrl: AppEnvironment.apiBaseUrl)) {
     _dio.interceptors.add(
@@ -132,11 +156,12 @@ class ApiClient {
     );
     final projects = response.data?['projects'] as List<dynamic>? ?? const [];
     return projects
-        .map((project) => ProjectRecord.fromJson(project as Map<String, dynamic>))
+        .map((project) =>
+            ProjectRecord.fromJson(project as Map<String, dynamic>))
         .toList();
   }
 
-  Future<List<SearchResultRecord>> searchProject({
+  Future<SearchResponseRecord> searchProject({
     required String projectId,
     required String query,
     int limit = 10,
@@ -146,10 +171,7 @@ class ApiClient {
       data: {'query': query, 'limit': limit},
       options: Options(headers: _sessionHeaders),
     );
-    final results = response.data?['results'] as List<dynamic>? ?? const [];
-    return results
-        .map((result) => SearchResultRecord.fromJson(result as Map<String, dynamic>))
-        .toList();
+    return SearchResponseRecord.fromJson(response.data ?? const {});
   }
 
   Future<ProjectRecord> fetchProject(String projectId) async {
@@ -179,7 +201,8 @@ class ApiClient {
     );
     final documents = response.data?['documents'] as List<dynamic>? ?? const [];
     return documents
-        .map((document) => DocumentRecord.fromJson(document as Map<String, dynamic>))
+        .map((document) =>
+            DocumentRecord.fromJson(document as Map<String, dynamic>))
         .toList();
   }
 

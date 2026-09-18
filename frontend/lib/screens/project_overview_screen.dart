@@ -17,7 +17,7 @@ class ProjectOverviewScreen extends StatefulWidget {
 class _ProjectOverviewScreenState extends State<ProjectOverviewScreen> {
   late final Future<ProjectRecord> _projectFuture;
   final _searchController = TextEditingController();
-  List<SearchResultRecord> _searchResults = const [];
+  SearchResponseRecord? _searchResponse;
   bool _isSearching = false;
   String? _searchError;
 
@@ -45,12 +45,12 @@ class _ProjectOverviewScreenState extends State<ProjectOverviewScreen> {
       _searchError = null;
     });
     try {
-      final results = await ApiClient.instance.searchProject(
+      final response = await ApiClient.instance.searchProject(
         projectId: projectId,
         query: query,
       );
       if (!mounted) return;
-      setState(() => _searchResults = results);
+      setState(() => _searchResponse = response);
     } catch (_) {
       if (!mounted) return;
       setState(() => _searchError = 'Search could not be completed.');
@@ -385,25 +385,34 @@ class _ProjectOverviewScreenState extends State<ProjectOverviewScreen> {
           ),
           if (_searchError != null) ...[
             const SizedBox(height: AppSpacing.md),
-            Text(_searchError!, style: TextStyle(color: theme.colorScheme.error)),
-          ] else if (_searchResults.isNotEmpty) ...[
+            Text(_searchError!,
+                style: TextStyle(color: theme.colorScheme.error)),
+          ] else if (_searchResponse != null) ...[
             const SizedBox(height: AppSpacing.lg),
-            ..._searchResults.map((result) => Padding(
-                  padding: const EdgeInsets.only(bottom: AppSpacing.md),
-                  child: ListTile(
-                    contentPadding: EdgeInsets.zero,
-                    leading: const Icon(Icons.description_outlined),
-                    title: Text(result.documentName),
-                    subtitle: Text(
-                      '${result.content}${result.pageNumber == null ? '' : '\nPage ${result.pageNumber}'}',
-                      maxLines: 4,
-                      overflow: TextOverflow.ellipsis,
+            _SearchAnswer(response: _searchResponse!),
+            if (_searchResponse!.results.isNotEmpty) ...[
+              const SizedBox(height: AppSpacing.lg),
+              Text('Sources', style: theme.textTheme.titleMedium),
+              const SizedBox(height: AppSpacing.sm),
+              ..._searchResponse!.results.map((result) => Padding(
+                    padding: const EdgeInsets.only(bottom: AppSpacing.md),
+                    child: ListTile(
+                      contentPadding: EdgeInsets.zero,
+                      leading: const Icon(Icons.description_outlined),
+                      title: Text(result.documentName),
+                      subtitle: Text(
+                        '${result.content}${result.pageNumber == null ? '' : '\nPage ${result.pageNumber}'}',
+                        maxLines: 4,
+                        overflow: TextOverflow.ellipsis,
+                      ),
                     ),
-                  ),
-                )),
-          ] else if (_searchController.text.trim().isNotEmpty && !_isSearching) ...[
+                  )),
+            ],
+          ] else if (_searchController.text.trim().isNotEmpty &&
+              !_isSearching) ...[
             const SizedBox(height: AppSpacing.lg),
-            Text('No matching knowledge found.', style: theme.textTheme.bodyMedium),
+            Text('No matching knowledge found.',
+                style: theme.textTheme.bodyMedium),
           ],
         ],
       ),
@@ -438,6 +447,55 @@ class _ProjectOverviewScreenState extends State<ProjectOverviewScreen> {
 
 String _dateLabel(DateTime date) =>
     '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
+
+class _SearchAnswer extends StatelessWidget {
+  const _SearchAnswer({required this.response});
+
+  final SearchResponseRecord response;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Semantics(
+      label: 'AI answer',
+      child: Container(
+        padding: const EdgeInsets.all(AppSpacing.lg),
+        decoration: BoxDecoration(
+          color: theme.colorScheme.surfaceContainerHighest,
+          borderRadius: BorderRadius.circular(AppRadius.lg),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(Icons.auto_awesome, color: theme.colorScheme.primary),
+                const SizedBox(width: AppSpacing.sm),
+                Text('Answer', style: theme.textTheme.titleMedium),
+              ],
+            ),
+            const SizedBox(height: AppSpacing.md),
+            SelectableText(
+              response.answer.isEmpty
+                  ? 'No answer was returned for this search.'
+                  : response.answer,
+              style: theme.textTheme.bodyLarge,
+            ),
+            if (response.rewrittenQuery.isNotEmpty) ...[
+              const SizedBox(height: AppSpacing.md),
+              Text(
+                'Search query: ${response.rewrittenQuery}',
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
 
 class _EmptyPanel extends StatelessWidget {
   const _EmptyPanel({required this.title, required this.message});

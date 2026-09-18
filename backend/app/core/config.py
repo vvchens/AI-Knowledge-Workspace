@@ -50,6 +50,34 @@ class Settings(BaseSettings):
     embedding_api_key: str | None = Field(default=None, validation_alias="EMBEDDING_API_KEY")
     embedding_model: str = Field(default="text-embedding-3-small", validation_alias="EMBEDDING_MODEL")
     embedding_dimensions: int = Field(default=1536, validation_alias="EMBEDDING_DIMENSIONS", gt=0)
+    llm_api_url: str | None = Field(default=None, validation_alias="LLM_API_URL")
+    llm_api_key: str | None = Field(default=None, validation_alias="LLM_API_KEY")
+    llm_model: str = Field(default="gpt-4.1-mini", validation_alias="LLM_MODEL")
+    llm_timeout_seconds: int = Field(default=60, validation_alias="LLM_TIMEOUT_SECONDS", gt=0, le=300)
+    llm_query_rewrite_temperature: float = Field(
+        default=0.0,
+        validation_alias="LLM_QUERY_REWRITE_TEMPERATURE",
+        ge=0.0,
+        le=2.0,
+    )
+    llm_answer_temperature: float = Field(
+        default=0.1,
+        validation_alias="LLM_ANSWER_TEMPERATURE",
+        ge=0.0,
+        le=2.0,
+    )
+    llm_answer_repair_temperature: float = Field(
+        default=0.0,
+        validation_alias="LLM_ANSWER_REPAIR_TEMPERATURE",
+        ge=0.0,
+        le=2.0,
+    )
+    llm_suppress_reasoning: bool = Field(default=True, validation_alias="LLM_SUPPRESS_REASONING")
+    llm_max_context_characters: int = Field(
+        default=24_000,
+        validation_alias="LLM_MAX_CONTEXT_CHARACTERS",
+        gt=0,
+    )
     document_chunk_size: int = Field(default=1000, validation_alias="DOCUMENT_CHUNK_SIZE", gt=0)
     document_chunk_overlap: int = Field(default=150, validation_alias="DOCUMENT_CHUNK_OVERLAP", ge=0)
 
