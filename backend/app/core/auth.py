@@ -112,6 +112,10 @@ class FirebaseAuthProvider(BaseAuthProvider):
             credential = credentials.Certificate(settings.firebase_service_account_file)
         else:
             credential = credentials.ApplicationDefault()
+            logger.warning(
+                "No Firebase service account provided; using Application Default Credentials. "
+                "This may not work in all environments."
+            )
 
         options: dict[str, str] = {}
         if settings.firebase_project_id:
