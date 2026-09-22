@@ -1,4 +1,6 @@
 from contextlib import asynccontextmanager
+import logging
+from time import perf_counter
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -10,12 +12,26 @@ from app.core.database import database
 from app.services.embedding_schema import validate_embedding_schema
 
 
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s %(levelname)s %(name)s %(message)s",
+)
+logger = logging.getLogger(__name__)
+
+
 @asynccontextmanager
 async def lifespan(_: FastAPI):
-    database.check_connection()
-    with database.session() as db:
-        validate_embedding_schema(db)
+    logger.info("Starting %s", settings.app_name)
+    try:
+        database.check_connection()
+        with database.session() as db:
+            validate_embedding_schema(db)
+    except Exception:
+        logger.exception("Application startup validation failed")
+        raise
+    logger.info("Application startup validation completed")
     yield
+    logger.info("Shutting down %s", settings.app_name)
     database.close()
 
 app = FastAPI(
@@ -34,11 +50,32 @@ app.add_middleware(
 )
 
 
+@app.middleware("http")
+async def log_requests(request, call_next):
+    started_at = perf_counter()
+    try:
+        response = await call_next(request)
+    except Exception:
+        logger.exception("Unhandled request error: %s %s", request.method, request.url.path)
+        raise
+
+    duration_ms = (perf_counter() - started_at) * 1000
+    message = "%s %s -> %s (%.1f ms)"
+    if response.status_code >= 500:
+        logger.error(message, request.method, request.url.path, response.status_code, duration_ms)
+    elif response.status_code >= 400:
+        logger.warning(message, request.method, request.url.path, response.status_code, duration_ms)
+    else:
+        logger.info(message, request.method, request.url.path, response.status_code, duration_ms)
+    return response
+
+
 @app.get("/health")
 def health_check() -> dict[str, str]:
     try:
         database.check_connection()
     except SQLAlchemyError:
+        logger.warning("Health check failed: database is unavailable", exc_info=True)
         return {
             "status": "degraded",
             "service": settings.app_name,

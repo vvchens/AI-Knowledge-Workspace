@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import shutil
 from pathlib import Path
 from uuid import uuid4
@@ -19,6 +20,7 @@ from app.services.document_ingestion import process_document
 
 
 router = APIRouter(prefix="/projects/{project_id}/documents", tags=["documents"])
+logger = logging.getLogger(__name__)
 
 SUPPORTED_DOCUMENT_EXTENSIONS = {".pdf", ".txt", ".md"}
 SUPPORTED_DOCUMENT_CONTENT_TYPES = {
@@ -103,9 +105,15 @@ def upload_document(
     _project_for_user(project_id, user, db)
     original_name = Path(file.filename or "document").name
     if not original_name:
+        logger.warning("Document upload rejected: missing file name")
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Missing file name")
     extension = Path(original_name).suffix.lower()
     if extension not in SUPPORTED_DOCUMENT_EXTENSIONS and file.content_type not in SUPPORTED_DOCUMENT_CONTENT_TYPES:
+        logger.warning(
+            "Document upload rejected: unsupported file type name=%s content_type=%s",
+            original_name,
+            file.content_type,
+        )
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail="Only PDF, TXT, and Markdown files are supported",
@@ -114,6 +122,7 @@ def upload_document(
     upload_root = Path(settings.upload_dir).resolve()
     project_dir = (upload_root / project_id).resolve()
     if upload_root not in project_dir.parents:
+        logger.error("Document upload rejected: invalid upload path for project=%s", project_id)
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid upload path")
     project_dir.mkdir(parents=True, exist_ok=True)
 
@@ -136,6 +145,13 @@ def upload_document(
     db.commit()
     db.refresh(document)
     background_tasks.add_task(process_document, document.id)
+    logger.info(
+        "Document uploaded and queued for indexing document_id=%s project_id=%s name=%s size_bytes=%d",
+        document.id,
+        project_id,
+        original_name,
+        size_bytes,
+    )
     return _to_response(document)
 
 

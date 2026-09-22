@@ -1,3 +1,5 @@
+import logging
+
 from fastapi import APIRouter, Depends, Header, HTTPException, status
 from pydantic import BaseModel, Field
 from sqlalchemy import select
@@ -14,6 +16,7 @@ from app.services.llm import LLMError, generate_text
 
 
 router = APIRouter(prefix="/projects/{project_id}/search", tags=["search"])
+logger = logging.getLogger(__name__)
 
 
 class SearchRequest(BaseModel):
@@ -122,10 +125,12 @@ def _current_user(
     if authorization and authorization.lower().startswith("bearer "):
         session_token = authorization[7:].strip()
     if not session_token:
+        logger.warning("Search request rejected: missing session token")
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Missing session")
 
     user = auth_service.get_user_from_session(db, session_token)
     if user is None:
+        logger.warning("Search request rejected: invalid or expired session")
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid session")
     return user
 
@@ -139,6 +144,7 @@ def search_project(
 ) -> SearchResponse:
     project = db.scalar(select(Project).where(Project.id == project_id, Project.owner_id == user.id))
     if project is None:
+        logger.warning("Search request rejected: project not found for authenticated user")
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Project not found")
 
     try:
@@ -152,11 +158,13 @@ def search_project(
             raise LLMError("LLM returned an empty retrieval query")
         query_embedding = embed_texts([rewritten_query])[0]
     except LLMError as exc:
+        logger.error("Search query rewrite failed: %s", exc)
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="LLM service is unavailable",
         ) from exc
     except EmbeddingError as exc:
+        logger.error("Search embedding failed: %s", exc)
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="Search embedding service is unavailable",
@@ -186,10 +194,12 @@ def search_project(
         )
         for chunk, document, distance_value in rows
     ]
+    logger.info("Search retrieved %d result(s) for project", len(results))
 
     try:
         answer = _generate_answer(payload.query.strip(), _retrieval_context(results))
     except LLMError as exc:
+        logger.error("Search answer generation failed: %s", exc)
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="LLM service is unavailable",

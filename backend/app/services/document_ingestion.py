@@ -117,19 +117,30 @@ def _extract_text(document: Document) -> list[TextChunk]:
 
 
 def process_document(document_id: str) -> None:
+    logger.info("Document indexing started document_id=%s", document_id)
     db = database.session()
     document = db.get(Document, document_id)
     if document is None:
+        logger.warning("Document indexing skipped: document not found document_id=%s", document_id)
         db.close()
         return
 
     try:
         chunks_with_pages = _extract_text(document)
+        logger.info(
+            "Document text extracted document_id=%s format=%s chunks=%d",
+            document_id,
+            Path(document.name).suffix.lower() or "unknown",
+            len(chunks_with_pages),
+        )
 
         if not chunks_with_pages:
+            logger.warning("Document indexing found no extractable text document_id=%s", document_id)
             raise ValueError("Document contains no extractable text")
 
+        logger.info("Generating embeddings document_id=%s chunks=%d", document_id, len(chunks_with_pages))
         embeddings = embed_texts([chunk.content for chunk in chunks_with_pages])
+        logger.info("Embeddings generated document_id=%s vectors=%d", document_id, len(embeddings))
         db.query(DocumentChunk).filter(DocumentChunk.document_id == document.id).delete()
         chunk_records = []
         for index, (chunk, embedding) in enumerate(zip(chunks_with_pages, embeddings)):
@@ -156,6 +167,11 @@ def process_document(document_id: str) -> None:
         db.add_all(chunk_records)
         document.status = "COMPLETED"
         db.commit()
+        logger.info(
+            "Document indexing completed document_id=%s chunks=%d",
+            document_id,
+            len(chunk_records),
+        )
     except Exception:
         db.rollback()
         document = db.get(Document, document_id)
