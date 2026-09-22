@@ -54,6 +54,12 @@ class Settings(BaseSettings):
     llm_api_key: str | None = Field(default=None, validation_alias="LLM_API_KEY")
     llm_model: str = Field(default="gpt-4.1-mini", validation_alias="LLM_MODEL")
     llm_timeout_seconds: int = Field(default=60, validation_alias="LLM_TIMEOUT_SECONDS", gt=0, le=300)
+    llm_overload_max_retries: int = Field(
+        default=5,
+        validation_alias="LLM_OVERLOAD_MAX_RETRIES",
+        ge=0,
+        le=5,
+    )
     llm_query_rewrite_temperature: float = Field(
         default=0.0,
         validation_alias="LLM_QUERY_REWRITE_TEMPERATURE",

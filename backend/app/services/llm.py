@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import time
 from typing import Any
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
@@ -10,6 +11,36 @@ from app.core.config import settings
 
 class LLMError(RuntimeError):
     """Raised when the configured text-generation provider cannot serve a request."""
+
+
+class LLMProviderOverloadedError(LLMError):
+    """Raised after all retries for a temporary provider overload are exhausted."""
+
+
+def _is_provider_overloaded(result: dict[str, Any]) -> bool:
+    """Return whether a successful HTTP response reports temporary provider overload."""
+    error = result.get("error")
+    error_type = result.get("error_type")
+    if isinstance(error, dict):
+        error_type = error_type or error.get("type") or error.get("code")
+        message = error.get("message", "")
+    else:
+        message = ""
+
+    return (
+        isinstance(error_type, str)
+        and error_type.lower() == "provider_overloaded"
+    ) or (
+        isinstance(message, str)
+        and "overload" in message.lower()
+        and result.get("status") == "failed"
+    )
+
+
+def _retry_after_overload(attempt: int) -> None:
+    """Wait according to the overload retry schedule before the next request."""
+    delay = 1 if attempt == 0 else 2
+    time.sleep(delay)
 
 
 def _response_text(result: dict[str, Any]) -> str:
@@ -78,12 +109,33 @@ def generate_text(
         headers["Authorization"] = f"Bearer {settings.llm_api_key}"
 
     request = Request(settings.llm_api_url, data=payload, headers=headers, method="POST")
-    try:
-        with urlopen(request, timeout=settings.llm_timeout_seconds) as response:
-            result = json.load(response)
-    except (HTTPError, URLError, TimeoutError, json.JSONDecodeError) as exc:
-        raise LLMError(f"LLM request failed: {exc}") from exc
+    total_attempts = settings.llm_overload_max_retries + 1
+    for attempt in range(total_attempts):
+        try:
+            with urlopen(request, timeout=settings.llm_timeout_seconds) as response:
+                result = json.load(response)
+        except HTTPError as exc:
+            # Providers conventionally use 429/503 for rate limiting and temporary overload.
+            if exc.code not in (429, 503):
+                raise LLMError(f"LLM request failed: {exc}") from exc
+            if attempt == total_attempts - 1:
+                raise LLMProviderOverloadedError(
+                    f"LLM provider remained overloaded after {total_attempts} attempts"
+                ) from exc
+            _retry_after_overload(attempt)
+            continue
+        except (URLError, TimeoutError, json.JSONDecodeError) as exc:
+            raise LLMError(f"LLM request failed: {exc}") from exc
 
-    if not isinstance(result, dict):
-        raise LLMError("LLM response must be a JSON object")
-    return _response_text(result)
+        if not isinstance(result, dict):
+            raise LLMError("LLM response must be a JSON object")
+        if not _is_provider_overloaded(result):
+            return _response_text(result)
+        if attempt == total_attempts - 1:
+            raise LLMProviderOverloadedError(
+                f"LLM provider remained overloaded after {total_attempts} attempts"
+            )
+        _retry_after_overload(attempt)
+
+    # The loop always returns or raises; this keeps static type checkers satisfied.
+    raise AssertionError("unreachable")

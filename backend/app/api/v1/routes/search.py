@@ -1,4 +1,5 @@
 import logging
+from typing import Literal
 
 from fastapi import APIRouter, Depends, Header, HTTPException, status
 from pydantic import BaseModel, Field
@@ -12,11 +13,12 @@ from app.models.document import Document, DocumentChunk
 from app.models.project import Project
 from app.models.user import User
 from app.services.embedding import EmbeddingError, embed_texts
-from app.services.llm import LLMError, generate_text
+from app.services.llm import LLMError, LLMProviderOverloadedError, generate_text
 
 
 router = APIRouter(prefix="/projects/{project_id}/search", tags=["search"])
 logger = logging.getLogger(__name__)
+LLM_PROVIDER_OVERLOADED_CODE = "LLM_PROVIDER_OVERLOADED"
 
 
 class SearchRequest(BaseModel):
@@ -37,6 +39,17 @@ class SearchResponse(BaseModel):
     rewritten_query: str
     answer: str
     results: list[SearchResultResponse]
+
+
+class LLMProviderOverloadedDetail(BaseModel):
+    """Error details returned when all LLM overload retries are exhausted."""
+
+    code: Literal["LLM_PROVIDER_OVERLOADED"]
+    message: str
+
+
+class LLMProviderOverloadedResponse(BaseModel):
+    detail: LLMProviderOverloadedDetail
 
 
 QUERY_REWRITE_INSTRUCTIONS = """You rewrite a user's question for semantic retrieval in a RAG knowledge base.
@@ -77,6 +90,23 @@ _INTERNAL_REASONING_MARKERS = (
 def _is_user_facing_answer(answer: str) -> bool:
     normalized = answer.strip().lower()
     return bool(normalized) and not any(marker in normalized for marker in _INTERNAL_REASONING_MARKERS)
+
+
+def _llm_service_unavailable(exc: LLMError) -> HTTPException:
+    """Convert LLM failures into the stable API error contract used by clients."""
+    if isinstance(exc, LLMProviderOverloadedError):
+        return HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail={
+                "code": LLM_PROVIDER_OVERLOADED_CODE,
+                "message": "The AI service is temporarily overloaded. Please try again later.",
+            },
+            headers={"Retry-After": "2"},
+        )
+    return HTTPException(
+        status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+        detail="LLM service is unavailable",
+    )
 
 
 def _generate_answer(question: str, context: str) -> str:
@@ -135,7 +165,22 @@ def _current_user(
     return user
 
 
-@router.post("", response_model=SearchResponse)
+@router.post(
+    "",
+    response_model=SearchResponse,
+    responses={
+        503: {
+            "description": "The AI provider remained overloaded after all automatic retries.",
+            "model": LLMProviderOverloadedResponse,
+            "headers": {
+                "Retry-After": {
+                    "description": "Suggested seconds to wait before submitting another request.",
+                    "schema": {"type": "integer", "example": 2},
+                }
+            },
+        }
+    },
+)
 def search_project(
     project_id: str,
     payload: SearchRequest,
@@ -159,10 +204,7 @@ def search_project(
         query_embedding = embed_texts([rewritten_query])[0]
     except LLMError as exc:
         logger.error("Search query rewrite failed: %s", exc)
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="LLM service is unavailable",
-        ) from exc
+        raise _llm_service_unavailable(exc) from exc
     except EmbeddingError as exc:
         logger.error("Search embedding failed: %s", exc)
         raise HTTPException(
@@ -200,9 +242,6 @@ def search_project(
         answer = _generate_answer(payload.query.strip(), _retrieval_context(results))
     except LLMError as exc:
         logger.error("Search answer generation failed: %s", exc)
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="LLM service is unavailable",
-        ) from exc
+        raise _llm_service_unavailable(exc) from exc
 
     return SearchResponse(rewritten_query=rewritten_query, answer=answer, results=results)
