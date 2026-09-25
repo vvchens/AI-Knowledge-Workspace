@@ -10,7 +10,7 @@ from pypdf import PdfReader
 
 from app.core.database import database
 from app.core.config import settings
-from app.models.document import Document, DocumentChunk
+from app.models.document import Document, DocumentChunk, DocumentStatus
 from app.services.embedding import embed_texts
 
 
@@ -165,7 +165,7 @@ def process_document(document_id: str) -> None:
                 )
             )
         db.add_all(chunk_records)
-        document.status = "COMPLETED"
+        document.status = DocumentStatus.INDEXED
         db.commit()
         logger.info(
             "Document indexing completed document_id=%s chunks=%d",
@@ -176,7 +176,7 @@ def process_document(document_id: str) -> None:
         db.rollback()
         document = db.get(Document, document_id)
         if document is not None:
-            document.status = "FAILED"
+            document.status = DocumentStatus.FAILED
             db.commit()
         logger.exception("Document ingestion failed for %s", document_id)
     finally:

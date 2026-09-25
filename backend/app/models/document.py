@@ -1,14 +1,21 @@
 from __future__ import annotations
 
 from datetime import datetime
+from enum import Enum
 from uuid import uuid4
 
 from pgvector.sqlalchemy import Vector
-from sqlalchemy import DateTime, ForeignKey, Integer, JSON, String, Text, func
+from sqlalchemy import DateTime, Enum as SqlEnum, ForeignKey, Integer, JSON, String, Text, func
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.config import settings
 from app.models.base import Base
+
+
+class DocumentStatus(str, Enum):
+    PROCESSING = "PROCESSING"
+    INDEXED = "INDEXED"
+    FAILED = "FAILED"
 
 
 class Document(Base):
@@ -25,7 +32,12 @@ class Document(Base):
     storage_path: Mapped[str] = mapped_column(String(1024), nullable=False)
     content_type: Mapped[str | None] = mapped_column(String(255), nullable=True)
     size_bytes: Mapped[int] = mapped_column(Integer, nullable=False)
-    status: Mapped[str] = mapped_column(String(32), nullable=False, default="PROCESSING", index=True)
+    status: Mapped[DocumentStatus] = mapped_column(
+        SqlEnum(DocumentStatus, name="document_status"),
+        nullable=False,
+        default=DocumentStatus.PROCESSING,
+        index=True,
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )

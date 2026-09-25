@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 from app.core.auth import auth_service
 from app.core.config import settings
 from app.core.database import get_db_session
-from app.models.document import Document, DocumentChunk
+from app.models.document import Document, DocumentChunk, DocumentStatus
 from app.models.project import Project
 from app.models.user import User
 from app.services.embedding import EmbeddingError, embed_texts
@@ -219,7 +219,7 @@ def search_project(
         .where(
             Document.project_id == project_id,
             Document.owner_id == user.id,
-            Document.status.in_(["COMPLETED", "completed", "indexed"]),
+            Document.status == DocumentStatus.INDEXED,
         )
         .order_by(distance)
         .limit(payload.limit)

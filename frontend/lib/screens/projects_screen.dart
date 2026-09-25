@@ -222,20 +222,13 @@ class _ProjectsScreenState extends State<ProjectsScreen> {
             _NavigationItem(
               icon: Icons.dashboard_outlined,
               label: 'Dashboard',
-              onTap: () =>
-                  () => _showMessage('Dashboard is not available yet.'),
+              onTap: () => context.go('/dashboard'),
             ),
             _NavigationItem(
               icon: Icons.folder_open_outlined,
               label: 'Projects',
               selected: true,
               onTap: () {},
-            ),
-            _NavigationItem(
-              icon: Icons.description_outlined,
-              label: 'Documents',
-              onTap: () =>
-                  () => _showMessage('Documents is not available yet.'),
             ),
             const Spacer(),
             _NavigationItem(
@@ -623,17 +616,46 @@ class _NavigationItem extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm),
-      child: ListTile(
-        leading: Icon(icon),
-        title: Text(label),
-        selected: selected,
-        selectedColor: theme.colorScheme.primary,
-        selectedTileColor: theme.colorScheme.primaryContainer,
-        shape: RoundedRectangleBorder(
+      padding: const EdgeInsets.symmetric(
+          horizontal: AppSpacing.md, vertical: AppSpacing.xs),
+      child: Material(
+        color: selected
+            ? theme.colorScheme.primaryContainer
+            : Colors.transparent,
+        borderRadius: BorderRadius.circular(AppRadius.md),
+        child: InkWell(
+          onTap: onTap,
+          hoverColor: theme.colorScheme.primary.withValues(alpha: 0.08),
+          splashColor: theme.colorScheme.primary.withValues(alpha: 0.16),
           borderRadius: BorderRadius.circular(AppRadius.md),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(
+                horizontal: AppSpacing.md, vertical: AppSpacing.md),
+            child: Row(
+              children: [
+                Icon(
+                  icon,
+                  color: selected
+                      ? theme.colorScheme.onPrimaryContainer
+                      : theme.colorScheme.onSurfaceVariant,
+                ),
+                const SizedBox(width: AppSpacing.md),
+                Expanded(
+                  child: Text(
+                    label,
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      color: selected
+                          ? theme.colorScheme.onPrimaryContainer
+                          : theme.colorScheme.onSurface,
+                      fontWeight:
+                          selected ? FontWeight.w700 : FontWeight.w500,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
         ),
-        onTap: onTap,
       ),
     );
   }

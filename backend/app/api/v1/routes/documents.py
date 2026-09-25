@@ -13,7 +13,7 @@ from sqlalchemy.orm import Session
 from app.core.auth import auth_service
 from app.core.config import settings
 from app.core.database import get_db_session
-from app.models.document import Document
+from app.models.document import Document, DocumentStatus
 from app.models.project import Project
 from app.models.user import User
 from app.services.document_ingestion import process_document
@@ -35,7 +35,7 @@ class DocumentResponse(BaseModel):
     name: str
     content_type: str | None
     size_bytes: int
-    status: str
+    status: DocumentStatus
     created_at: str
     updated_at: str
 
@@ -139,7 +139,7 @@ def upload_document(
         storage_path=str(stored_path),
         content_type=file.content_type,
         size_bytes=size_bytes,
-        status="PROCESSING",
+        status=DocumentStatus.PROCESSING,
     )
     db.add(document)
     db.commit()

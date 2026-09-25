@@ -593,6 +593,8 @@ class _NavigationItem extends StatelessWidget {
         borderRadius: BorderRadius.circular(AppRadius.md),
         child: InkWell(
           onTap: onTap,
+          hoverColor: theme.colorScheme.primary.withValues(alpha: 0.08),
+          splashColor: theme.colorScheme.primary.withValues(alpha: 0.16),
           borderRadius: BorderRadius.circular(AppRadius.md),
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md, vertical: AppSpacing.md),
