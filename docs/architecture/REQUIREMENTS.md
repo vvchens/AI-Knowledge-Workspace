@@ -171,6 +171,34 @@ The reason for this split is that OAuth linkage is durable business data, while 
 
 The login UI shall expose Google and Apple sign-in entry points in addition to email/password. All three paths terminate in Firebase Authentication; the backend treats them uniformly once a Firebase ID token is presented.
 
+### FR-001d User invitation and registration
+
+Administrators shall be able to invite a workspace user by entering a required email address and selecting exactly one role:
+
+- `admin`
+- `member`
+
+After confirmation, the system shall create a registration link with these semantics:
+
+- The link is valid for 24 hours from creation.
+- The database stores only a hash of the link token, never the raw token.
+- The link is single-use. After successful registration, it shall be invalid immediately.
+- The invited Firebase account email must match the invitation email, case-insensitively.
+- The invitation result shall display the link and provide a copy-link action.
+- Email delivery is an integration placeholder in the current phase; the UI shall expose the action without requiring a mail provider.
+
+The registration page shall require:
+
+- First name
+- Last name
+- Password
+
+The password shall be created through Firebase Authentication. The backend shall verify the Firebase ID token, apply the invited role, save the user's full display name, and atomically consume the invitation. Expired, already-consumed, malformed, or email-mismatched invitations shall be rejected.
+
+### FR-001e User management
+
+Authenticated administrators shall be able to view workspace users with their email, role, project count, status, and last activity. User roles displayed by the API shall reflect the persisted invitation or account role rather than a hard-coded label.
+
 ### FR-002 RBAC
 
 The system shall enforce role- and Project-based authorization.

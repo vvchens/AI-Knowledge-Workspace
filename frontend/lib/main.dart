@@ -14,6 +14,8 @@ import 'screens/login_screen.dart';
 import 'screens/project_overview_screen.dart';
 import 'screens/project_documents_screen.dart';
 import 'screens/projects_screen.dart';
+import 'screens/register_screen.dart';
+import 'screens/users_screen.dart';
 import 'theme/app_theme.dart';
 
 Future<void> main() async {
@@ -64,12 +66,22 @@ class App extends StatelessWidget {
           builder: (context, state) => const LoginScreen(),
         ),
         GoRoute(
+          path: '/register',
+          builder: (context, state) => RegisterScreen(
+            token: state.uri.queryParameters['token'],
+          ),
+        ),
+        GoRoute(
           path: '/dashboard',
           builder: (context, state) => const DashboardScreen(),
         ),
         GoRoute(
           path: '/projects',
           builder: (context, state) => const ProjectsScreen(),
+        ),
+        GoRoute(
+          path: '/users',
+          builder: (context, state) => const UsersScreen(),
         ),
         GoRoute(
           path: '/project-overview',

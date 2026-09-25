@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import '../components/app_components.dart';
+import '../components/app_sidebar.dart';
 import '../theme/app_tokens.dart';
 
 class DashboardScreen extends StatelessWidget {
@@ -15,7 +16,8 @@ class DashboardScreen extends StatelessWidget {
           final isDesktop = constraints.maxWidth >= 900;
           return Row(
             children: [
-              if (isDesktop) _buildNavigationRail(context),
+              if (isDesktop)
+                const AppSidebar(section: AppSidebarSection.dashboard),
               Expanded(
                 child: Column(
                   children: [
@@ -28,111 +30,6 @@ class DashboardScreen extends StatelessWidget {
             ],
           );
         },
-      ),
-    );
-  }
-
-  Widget _buildNavigationRail(BuildContext context) {
-    final theme = Theme.of(context);
-
-    return Container(
-      width: 240,
-      color: theme.colorScheme.surface,
-      child: SafeArea(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(
-                AppSpacing.xl,
-                AppSpacing.xl,
-                AppSpacing.lg,
-                AppSpacing.xxl,
-              ),
-              child: Row(
-                children: [
-                  Icon(Icons.psychology_outlined, color: theme.colorScheme.primary),
-                  const SizedBox(width: AppSpacing.sm),
-                  Expanded(
-                    child: Text(
-                      'AI Knowledge',
-                      style: theme.textTheme.titleLarge?.copyWith(
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            _NavigationItem(
-              icon: Icons.dashboard_outlined,
-              label: 'Dashboard',
-              selected: true,
-              onTap: () => context.go('/dashboard'),
-            ),
-            _NavigationItem(
-              icon: Icons.folder_open_outlined,
-              label: 'Projects',
-              onTap: () => context.go('/projects'),
-            ),
-            _NavigationItem(
-              icon: Icons.description_outlined,
-              label: 'Documents',
-              onTap: () => _showMessage(context, 'Documents is not connected yet.'),
-            ),
-            _NavigationItem(
-              icon: Icons.assessment_outlined,
-              label: 'Evaluation',
-              onTap: () => _showMessage(context, 'Evaluation is not connected yet.'),
-            ),
-            const Spacer(),
-            _NavigationItem(
-              icon: Icons.people_outline,
-              label: 'Users',
-              onTap: () => _showMessage(context, 'Users is not connected yet.'),
-            ),
-            _NavigationItem(
-              icon: Icons.settings_outlined,
-              label: 'Settings',
-              onTap: () => _showMessage(context, 'Settings is not connected yet.'),
-            ),
-            const Divider(height: 1),
-            Padding(
-              padding: const EdgeInsets.all(AppSpacing.lg),
-              child: Row(
-                children: [
-                  CircleAvatar(
-                    radius: 18,
-                    backgroundColor: theme.colorScheme.primaryContainer,
-                    child: Text(
-                      'SJ',
-                      style: theme.textTheme.labelMedium?.copyWith(
-                        color: theme.colorScheme.onPrimaryContainer,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: AppSpacing.sm),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text('Sarah Jenkins', style: theme.textTheme.labelMedium),
-                        Text(
-                          'Platform Admin',
-                          style: theme.textTheme.labelMedium?.copyWith(
-                            color: theme.colorScheme.onSurfaceVariant,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  Icon(Icons.more_horiz, color: theme.colorScheme.onSurfaceVariant),
-                ],
-              ),
-            ),
-          ],
-        ),
       ),
     );
   }
@@ -177,7 +74,8 @@ class DashboardScreen extends StatelessWidget {
               AppButton(
                 label: 'New Project',
                 icon: Icons.add,
-                onPressed: () => _showMessage(context, 'Project creation is not connected yet.'),
+                onPressed: () => _showMessage(
+                    context, 'Project creation is not connected yet.'),
               ),
             ],
           ),
@@ -209,7 +107,8 @@ class DashboardScreen extends StatelessWidget {
                         ? 2
                         : 1;
                 final gap = AppSpacing.lg;
-                final available = constraints.maxWidth - (gap * (crossAxisCount - 1));
+                final available =
+                    constraints.maxWidth - (gap * (crossAxisCount - 1));
                 final cardWidth = available / crossAxisCount;
 
                 return Wrap(
@@ -296,10 +195,14 @@ class DashboardScreen extends StatelessWidget {
         if (index == 1) context.go('/projects');
       },
       destinations: const [
-        NavigationDestination(icon: Icon(Icons.dashboard_outlined), label: 'Dashboard'),
-        NavigationDestination(icon: Icon(Icons.folder_open_outlined), label: 'Projects'),
-        NavigationDestination(icon: Icon(Icons.chat_bubble_outline), label: 'Chat'),
-        NavigationDestination(icon: Icon(Icons.person_outline), label: 'Profile'),
+        NavigationDestination(
+            icon: Icon(Icons.dashboard_outlined), label: 'Dashboard'),
+        NavigationDestination(
+            icon: Icon(Icons.folder_open_outlined), label: 'Projects'),
+        NavigationDestination(
+            icon: Icon(Icons.chat_bubble_outline), label: 'Chat'),
+        NavigationDestination(
+            icon: Icon(Icons.person_outline), label: 'Profile'),
       ],
     );
   }
@@ -407,7 +310,8 @@ class _RecentActivityPanel extends StatelessWidget {
         children: [
           Text(
             'Recent Activity',
-            style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700),
+            style: theme.textTheme.titleLarge
+                ?.copyWith(fontWeight: FontWeight.w700),
           ),
           const SizedBox(height: AppSpacing.lg),
           ...items.map(
@@ -465,9 +369,24 @@ class _ProjectHealthPanel extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final projects = [
-      _HealthProject(name: 'Customer Support Bot', status: 'Active', health: 94.2, docs: 47, queries: 189),
-      _HealthProject(name: 'Sales Assistant Agent', status: 'Processing', health: 91.8, docs: 124, queries: 54),
-      _HealthProject(name: 'Legal Compliance Auditor', status: 'Error', health: 0, docs: 8, queries: 0),
+      _HealthProject(
+          name: 'Customer Support Bot',
+          status: 'Active',
+          health: 94.2,
+          docs: 47,
+          queries: 189),
+      _HealthProject(
+          name: 'Sales Assistant Agent',
+          status: 'Processing',
+          health: 91.8,
+          docs: 124,
+          queries: 54),
+      _HealthProject(
+          name: 'Legal Compliance Auditor',
+          status: 'Error',
+          health: 0,
+          docs: 8,
+          queries: 0),
     ];
 
     return AppCard(
@@ -477,7 +396,8 @@ class _ProjectHealthPanel extends StatelessWidget {
         children: [
           Text(
             'Project Health Summary',
-            style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700),
+            style: theme.textTheme.titleLarge
+                ?.copyWith(fontWeight: FontWeight.w700),
           ),
           const SizedBox(height: AppSpacing.lg),
           ...projects.map(
@@ -538,7 +458,9 @@ class _ProjectHealthPanel extends StatelessWidget {
                   Align(
                     alignment: Alignment.centerRight,
                     child: Text(
-                      project.status == 'Error' ? 'N/A' : '${project.health.toStringAsFixed(1)}% accuracy',
+                      project.status == 'Error'
+                          ? 'N/A'
+                          : '${project.health.toStringAsFixed(1)}% accuracy',
                       style: theme.textTheme.labelMedium?.copyWith(
                         color: theme.colorScheme.onSurfaceVariant,
                       ),
@@ -568,57 +490,4 @@ class _HealthProject {
   final double health;
   final int docs;
   final int queries;
-}
-
-class _NavigationItem extends StatelessWidget {
-  const _NavigationItem({
-    required this.icon,
-    required this.label,
-    this.selected = false,
-    required this.onTap,
-  });
-
-  final IconData icon;
-  final String label;
-  final bool selected;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md, vertical: AppSpacing.xs),
-      child: Material(
-        color: selected ? theme.colorScheme.primaryContainer : Colors.transparent,
-        borderRadius: BorderRadius.circular(AppRadius.md),
-        child: InkWell(
-          onTap: onTap,
-          hoverColor: theme.colorScheme.primary.withValues(alpha: 0.08),
-          splashColor: theme.colorScheme.primary.withValues(alpha: 0.16),
-          borderRadius: BorderRadius.circular(AppRadius.md),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: AppSpacing.md, vertical: AppSpacing.md),
-            child: Row(
-              children: [
-                Icon(
-                  icon,
-                  color: selected ? theme.colorScheme.onPrimaryContainer : theme.colorScheme.onSurfaceVariant,
-                ),
-                const SizedBox(width: AppSpacing.md),
-                Expanded(
-                  child: Text(
-                    label,
-                    style: theme.textTheme.bodyMedium?.copyWith(
-                      color: selected ? theme.colorScheme.onPrimaryContainer : theme.colorScheme.onSurface,
-                      fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
 }

@@ -1,4 +1,5 @@
-from datetime import datetime
+from datetime import datetime, timezone
+import hashlib
 
 from fastapi import APIRouter, Cookie, Depends, HTTPException, Response, status
 from pydantic import BaseModel, Field
@@ -7,6 +8,8 @@ from sqlalchemy.orm import Session
 from app.core.auth import AuthError, auth_service
 from app.core.config import settings
 from app.core.database import get_db_session
+from app.models.user import User
+from app.services.invitations import consume_invitation, get_invitation
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 class FirebaseSessionRequest(BaseModel):
@@ -28,6 +31,19 @@ class CurrentUserResponse(BaseModel):
     provider_user_id: str
     email: str | None = None
     display_name: str | None = None
+
+
+class InvitationRegistrationRequest(BaseModel):
+    token: str = Field(min_length=1)
+    id_token: str = Field(min_length=1)
+    first_name: str = Field(min_length=1, max_length=100)
+    last_name: str = Field(min_length=1, max_length=100)
+
+
+class InvitationRegistrationResponse(BaseModel):
+    registered: bool
+    user_id: str
+    role: str
 
 
 @router.post("/firebase/session")
@@ -60,6 +76,32 @@ def firebase_session(
         provider_user_id=user.provider_user_id,
         session_token=session_payload.session_token,
         expires_at=session_payload.expires_at,
+    )
+
+
+@router.post("/invitations/register", response_model=InvitationRegistrationResponse)
+def register_from_invitation(
+    payload: InvitationRegistrationRequest,
+    db: Session = Depends(get_db_session),
+) -> InvitationRegistrationResponse:
+    invitation = get_invitation(payload.token, db)
+    try:
+        auth_user = auth_service.authenticate(payload.id_token)
+    except AuthError as exc:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=str(exc)) from exc
+
+    if auth_user.email is None or auth_user.email.strip().lower() != invitation.email:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Account email does not match invitation")
+
+    user = auth_service.get_or_create_user(db, auth_user)
+    user.display_name = f"{payload.first_name.strip()} {payload.last_name.strip()}"
+    invitation = consume_invitation(payload.token, db)
+    user.role = invitation.role
+    db.commit()
+    return InvitationRegistrationResponse(
+        registered=True,
+        user_id=user.id,
+        role=user.role,
     )
 
 

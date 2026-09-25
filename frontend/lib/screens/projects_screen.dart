@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import '../components/app_components.dart';
+import '../components/app_sidebar.dart';
 import '../services/api_client.dart';
 import '../theme/app_tokens.dart';
 
@@ -138,12 +139,6 @@ class _ProjectsScreenState extends State<ProjectsScreen> {
     }
   }
 
-  void _showMessage(String message) {
-    ScaffoldMessenger.of(context)
-      ..hideCurrentSnackBar()
-      ..showSnackBar(SnackBar(content: Text(message)));
-  }
-
   @override
   void dispose() {
     _searchController.dispose();
@@ -170,7 +165,8 @@ class _ProjectsScreenState extends State<ProjectsScreen> {
           final isDesktop = constraints.maxWidth >= 900;
           return Row(
             children: [
-              if (isDesktop) _buildNavigationRail(context),
+              if (isDesktop)
+                const AppSidebar(section: AppSidebarSection.projects),
               Expanded(
                 child: Column(
                   children: [
@@ -183,101 +179,6 @@ class _ProjectsScreenState extends State<ProjectsScreen> {
             ],
           );
         },
-      ),
-    );
-  }
-
-  Widget _buildNavigationRail(BuildContext context) {
-    final theme = Theme.of(context);
-    return Container(
-      width: 240,
-      color: theme.colorScheme.surface,
-      child: SafeArea(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(
-                AppSpacing.xl,
-                AppSpacing.xl,
-                AppSpacing.lg,
-                AppSpacing.xxl,
-              ),
-              child: Row(
-                children: [
-                  Icon(Icons.psychology_outlined,
-                      color: theme.colorScheme.primary),
-                  const SizedBox(width: AppSpacing.sm),
-                  Expanded(
-                    child: Text(
-                      'AI Knowledge',
-                      style: theme.textTheme.titleLarge?.copyWith(
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            _NavigationItem(
-              icon: Icons.dashboard_outlined,
-              label: 'Dashboard',
-              onTap: () => context.go('/dashboard'),
-            ),
-            _NavigationItem(
-              icon: Icons.folder_open_outlined,
-              label: 'Projects',
-              selected: true,
-              onTap: () {},
-            ),
-            const Spacer(),
-            _NavigationItem(
-              icon: Icons.people_outline,
-              label: 'Users',
-              onTap: () => () => _showMessage('Users is not available yet.'),
-            ),
-            _NavigationItem(
-              icon: Icons.settings_outlined,
-              label: 'Settings',
-              onTap: () => () => _showMessage('Settings is not available yet.'),
-            ),
-            const Divider(height: 1),
-            Padding(
-              padding: const EdgeInsets.all(AppSpacing.lg),
-              child: Row(
-                children: [
-                  CircleAvatar(
-                    radius: 18,
-                    backgroundColor: theme.colorScheme.primaryContainer,
-                    child: Text(
-                      'SJ',
-                      style: theme.textTheme.labelMedium?.copyWith(
-                        color: theme.colorScheme.onPrimaryContainer,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: AppSpacing.sm),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text('Sarah Jenkins',
-                            style: theme.textTheme.labelMedium),
-                        Text('Platform Admin',
-                            style: theme.textTheme.labelMedium?.copyWith(
-                              color: theme.colorScheme.onSurfaceVariant,
-                            )),
-                      ],
-                    ),
-                  ),
-                  Icon(Icons.more_horiz,
-                      color: theme.colorScheme.onSurfaceVariant),
-                ],
-              ),
-            ),
-          ],
-        ),
       ),
     );
   }
@@ -595,68 +496,6 @@ class _ProjectMetric extends StatelessWidget {
               color: theme.colorScheme.onSurfaceVariant,
             )),
       ],
-    );
-  }
-}
-
-class _NavigationItem extends StatelessWidget {
-  const _NavigationItem({
-    required this.icon,
-    required this.label,
-    required this.onTap,
-    this.selected = false,
-  });
-
-  final IconData icon;
-  final String label;
-  final VoidCallback onTap;
-  final bool selected;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Padding(
-      padding: const EdgeInsets.symmetric(
-          horizontal: AppSpacing.md, vertical: AppSpacing.xs),
-      child: Material(
-        color: selected
-            ? theme.colorScheme.primaryContainer
-            : Colors.transparent,
-        borderRadius: BorderRadius.circular(AppRadius.md),
-        child: InkWell(
-          onTap: onTap,
-          hoverColor: theme.colorScheme.primary.withValues(alpha: 0.08),
-          splashColor: theme.colorScheme.primary.withValues(alpha: 0.16),
-          borderRadius: BorderRadius.circular(AppRadius.md),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(
-                horizontal: AppSpacing.md, vertical: AppSpacing.md),
-            child: Row(
-              children: [
-                Icon(
-                  icon,
-                  color: selected
-                      ? theme.colorScheme.onPrimaryContainer
-                      : theme.colorScheme.onSurfaceVariant,
-                ),
-                const SizedBox(width: AppSpacing.md),
-                Expanded(
-                  child: Text(
-                    label,
-                    style: theme.textTheme.bodyMedium?.copyWith(
-                      color: selected
-                          ? theme.colorScheme.onPrimaryContainer
-                          : theme.colorScheme.onSurface,
-                      fontWeight:
-                          selected ? FontWeight.w700 : FontWeight.w500,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
     );
   }
 }

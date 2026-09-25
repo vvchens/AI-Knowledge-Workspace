@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:file_picker/file_picker.dart';
-import 'package:go_router/go_router.dart';
 
 import '../components/app_components.dart';
+import '../components/app_sidebar.dart';
 import '../services/api_client.dart';
 import '../theme/app_tokens.dart';
 
@@ -94,7 +94,8 @@ class _ProjectDocumentsScreenState extends State<ProjectDocumentsScreen> {
       context: context,
       builder: (dialogContext) => AlertDialog(
         title: const Text('Delete document?'),
-        content: Text('"${document.name}" and its indexed content will be permanently deleted.'),
+        content: Text(
+            '"${document.name}" and its indexed content will be permanently deleted.'),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(dialogContext).pop(false),
@@ -164,7 +165,11 @@ class _ProjectDocumentsScreenState extends State<ProjectDocumentsScreen> {
           final isDesktop = constraints.maxWidth >= 980;
           return Row(
             children: [
-              if (isDesktop) _buildNavigationRail(context),
+              if (isDesktop)
+                AppSidebar(
+                  section: AppSidebarSection.documents,
+                  projectId: widget.projectId,
+                ),
               Expanded(
                 child: Column(
                   children: [
@@ -177,107 +182,6 @@ class _ProjectDocumentsScreenState extends State<ProjectDocumentsScreen> {
             ],
           );
         },
-      ),
-    );
-  }
-
-  Widget _buildNavigationRail(BuildContext context) {
-    final theme = Theme.of(context);
-    return Container(
-      width: 240,
-      color: theme.colorScheme.surface,
-      child: SafeArea(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(
-                AppSpacing.xl,
-                AppSpacing.xl,
-                AppSpacing.lg,
-                AppSpacing.xxl,
-              ),
-              child: Row(
-                children: [
-                  Icon(Icons.psychology_outlined,
-                      color: theme.colorScheme.primary),
-                  const SizedBox(width: AppSpacing.sm),
-                  Expanded(
-                    child: Text(
-                      'AI Knowledge',
-                      style: theme.textTheme.titleLarge
-                          ?.copyWith(fontWeight: FontWeight.w700),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            _NavigationItem(
-              icon: Icons.dashboard_outlined,
-              label: 'Dashboard',
-              onTap: () => context.go('/dashboard'),
-            ),
-            _NavigationItem(
-              icon: Icons.folder_open_outlined,
-              label: 'Projects',
-              onTap: () => context.go('/projects'),
-            ),
-            _NavigationItem(
-              icon: Icons.description_outlined,
-              label: 'Documents',
-              selected: true,
-              onTap: () {},
-            ),
-            const Spacer(),
-            _NavigationItem(
-              icon: Icons.people_outline,
-              label: 'Users',
-              onTap: () => _showUnavailable(context),
-            ),
-            _NavigationItem(
-              icon: Icons.settings_outlined,
-              label: 'Settings',
-              onTap: () => _showUnavailable(context),
-            ),
-            const Divider(height: 1),
-            Padding(
-              padding: const EdgeInsets.all(AppSpacing.lg),
-              child: Row(
-                children: [
-                  CircleAvatar(
-                    radius: 18,
-                    backgroundColor: theme.colorScheme.primaryContainer,
-                    child: Text(
-                      'SJ',
-                      style: theme.textTheme.labelMedium?.copyWith(
-                        color: theme.colorScheme.onPrimaryContainer,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: AppSpacing.sm),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text('Sarah Jenkins',
-                            style: theme.textTheme.labelMedium),
-                        Text(
-                          'Platform Admin',
-                          style: theme.textTheme.labelMedium?.copyWith(
-                            color: theme.colorScheme.onSurfaceVariant,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  Icon(Icons.more_horiz,
-                      color: theme.colorScheme.onSurfaceVariant),
-                ],
-              ),
-            ),
-          ],
-        ),
       ),
     );
   }
@@ -553,37 +457,4 @@ String _formatBytes(int bytes) {
   if (bytes < 1024) return '$bytes B';
   if (bytes < 1024 * 1024) return '${(bytes / 1024).toStringAsFixed(1)} KB';
   return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
-}
-
-class _NavigationItem extends StatelessWidget {
-  const _NavigationItem({
-    required this.icon,
-    required this.label,
-    required this.onTap,
-    this.selected = false,
-  });
-
-  final IconData icon;
-  final String label;
-  final VoidCallback onTap;
-  final bool selected;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: AppSpacing.sm),
-      child: ListTile(
-        leading: Icon(icon),
-        title: Text(label),
-        selected: selected,
-        selectedColor: theme.colorScheme.primary,
-        selectedTileColor: theme.colorScheme.primaryContainer,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(AppRadius.md),
-        ),
-        onTap: onTap,
-      ),
-    );
-  }
 }

@@ -67,6 +67,61 @@ class DocumentRecord {
   final DateTime updatedAt;
 }
 
+class UserRecord {
+  const UserRecord({
+    required this.id,
+    required this.name,
+    required this.email,
+    required this.role,
+    required this.projects,
+    required this.status,
+    required this.lastActive,
+  });
+
+  factory UserRecord.fromJson(Map<String, dynamic> json) {
+    return UserRecord(
+      id: json['id'] as String,
+      name: json['name'] as String,
+      email: json['email'] as String?,
+      role: json['role'] as String,
+      projects: json['projects'] as int,
+      status: json['status'] as String,
+      lastActive: DateTime.parse(json['last_active'] as String),
+    );
+  }
+
+  final String id;
+  final String name;
+  final String? email;
+  final String role;
+  final int projects;
+  final String status;
+  final DateTime lastActive;
+}
+
+class InvitationRecord {
+  const InvitationRecord({
+    required this.email,
+    required this.role,
+    required this.registrationPath,
+    required this.expiresAt,
+  });
+
+  factory InvitationRecord.fromJson(Map<String, dynamic> json) {
+    return InvitationRecord(
+      email: json['email'] as String,
+      role: json['role'] as String,
+      registrationPath: json['registration_path'] as String? ?? '',
+      expiresAt: DateTime.parse(json['expires_at'] as String),
+    );
+  }
+
+  final String email;
+  final String role;
+  final String registrationPath;
+  final DateTime expiresAt;
+}
+
 class SearchResultRecord {
   const SearchResultRecord({
     required this.documentId,
@@ -159,6 +214,53 @@ class ApiClient {
         .map((project) =>
             ProjectRecord.fromJson(project as Map<String, dynamic>))
         .toList();
+  }
+
+  Future<List<UserRecord>> fetchUsers() async {
+    final response = await _dio.get<Map<String, dynamic>>(
+      '/users',
+      options: Options(headers: _sessionHeaders),
+    );
+    final users = response.data?['users'] as List<dynamic>? ?? const [];
+    return users
+        .map((user) => UserRecord.fromJson(user as Map<String, dynamic>))
+        .toList();
+  }
+
+  Future<InvitationRecord> createInvitation({
+    required String email,
+    required String role,
+  }) async {
+    final response = await _dio.post<Map<String, dynamic>>(
+      '/users/invitations',
+      data: {'email': email, 'role': role},
+      options: Options(headers: _sessionHeaders),
+    );
+    return InvitationRecord.fromJson(response.data!);
+  }
+
+  Future<InvitationRecord> validateInvitation(String token) async {
+    final response = await _dio.get<Map<String, dynamic>>(
+      '/users/invitations/$token',
+    );
+    return InvitationRecord.fromJson(response.data!);
+  }
+
+  Future<void> registerFromInvitation({
+    required String token,
+    required String idToken,
+    required String firstName,
+    required String lastName,
+  }) async {
+    await _dio.post<void>(
+      '/auth/invitations/register',
+      data: {
+        'token': token,
+        'id_token': idToken,
+        'first_name': firstName,
+        'last_name': lastName,
+      },
+    );
   }
 
   Future<SearchResponseRecord> searchProject({
