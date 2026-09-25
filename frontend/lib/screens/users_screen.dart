@@ -193,7 +193,18 @@ class _UsersScreenState extends State<UsersScreen> {
   }
 
   Future<void> _showInvitationResult(InvitationRecord invitation) async {
-    final link = Uri.base.resolve(invitation.registrationPath).toString();
+    final registrationUri = Uri.parse(invitation.registrationPath);
+    final hashRoute = Uri(
+      path: '/register',
+      queryParameters: registrationUri.queryParameters,
+    ).toString();
+    final link = Uri.base
+        .replace(
+          path: '/',
+          queryParameters: const <String, String>{},
+          fragment: hashRoute,
+        )
+        .toString();
     await showDialog<void>(
       context: context,
       builder: (dialogContext) => AlertDialog(
