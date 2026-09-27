@@ -1,15 +1,16 @@
 from datetime import datetime
 
-from fastapi import APIRouter, Cookie, Depends, Header, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.core.auth import auth_service
-from app.core.config import settings
 from app.core.database import get_db_session
+from app.core.permissions import current_user, organization_member, project_membership
 from app.models.project import Project
+from app.models.project_membership import ProjectMembership
 from app.models.user import User
+from app.models.organization_member import OrganizationMember
 
 
 router = APIRouter(prefix="/projects", tags=["projects"])
@@ -35,22 +36,6 @@ class ProjectListResponse(BaseModel):
     projects: list[ProjectResponse]
 
 
-def _current_user(
-    session_token: str | None = Cookie(default=None, alias=settings.session_cookie_name),
-    authorization: str | None = Header(default=None),
-    db: Session = Depends(get_db_session),
-) -> User:
-    if authorization and authorization.lower().startswith("bearer "):
-        session_token = authorization[7:].strip()
-    if not session_token:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Missing session")
-
-    user = auth_service.get_user_from_session(db, session_token)
-    if user is None:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid session")
-    return user
-
-
 def _to_response(project: Project) -> ProjectResponse:
     return ProjectResponse(
         id=project.id,
@@ -67,11 +52,12 @@ def _to_response(project: Project) -> ProjectResponse:
 @router.get("", response_model=ProjectListResponse)
 def list_projects(
     db: Session = Depends(get_db_session),
-    user: User = Depends(_current_user),
+    user: User = Depends(current_user),
 ) -> ProjectListResponse:
     projects = db.scalars(
         select(Project)
-        .where(Project.owner_id == user.id)
+        .join(ProjectMembership, ProjectMembership.project_id == Project.id)
+        .where(ProjectMembership.user_id == user.id)
         .order_by(Project.updated_at.desc())
     ).all()
     return ProjectListResponse(projects=[_to_response(project) for project in projects])
@@ -81,12 +67,20 @@ def list_projects(
 def create_project(
     payload: ProjectCreateRequest,
     db: Session = Depends(get_db_session),
-    user: User = Depends(_current_user),
+    user: User = Depends(current_user),
+    organization: OrganizationMember = Depends(organization_member),
 ) -> ProjectResponse:
-    project = Project(owner_id=user.id, name=payload.name.strip(), description=payload.description.strip())
+    project = Project(
+        owner_id=user.id,
+        organization_id=organization.organization_id,
+        name=payload.name.strip(),
+        description=payload.description.strip(),
+    )
     db.add(project)
     db.commit()
     db.refresh(project)
+    db.add(ProjectMembership(project_id=project.id, user_id=user.id, role="owner"))
+    db.commit()
     return _to_response(project)
 
 
@@ -94,9 +88,10 @@ def create_project(
 def get_project(
     project_id: str,
     db: Session = Depends(get_db_session),
-    user: User = Depends(_current_user),
+    user: User = Depends(current_user),
 ) -> ProjectResponse:
-    project = db.scalar(select(Project).where(Project.id == project_id, Project.owner_id == user.id))
+    project_membership(project_id, user, db)
+    project = db.get(Project, project_id)
     if project is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Project not found")
     return _to_response(project)

@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from pydantic import Field
+from pydantic import AliasChoices, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -37,6 +37,15 @@ class Settings(BaseSettings):
         validation_alias="FIREBASE_CLOCK_SKEW_SECONDS",
         ge=0,
         le=60,
+    )
+    system_admin_ids: str = Field(
+        default="",
+        validation_alias=AliasChoices(
+            "SYSTEM_ADMIN_IDS",
+            "SUPER_ADMIN_IDS",
+            "SUPER_ADMIN_ID",
+        ),
+        description="Comma-separated Firebase UID or local user ID values granted system admin access.",
     )
 
     session_ttl_hours: int = Field(default=168, validation_alias="SESSION_TTL_HOURS")
@@ -91,6 +100,14 @@ class Settings(BaseSettings):
         env_file=(str(PROJECT_ROOT / ".env"), ".env"),
         extra="ignore",
     )
+
+    @property
+    def configured_system_admin_ids(self) -> frozenset[str]:
+        return frozenset(
+            value.strip()
+            for value in self.system_admin_ids.split(",")
+            if value.strip()
+        )
 
 
 settings = Settings()

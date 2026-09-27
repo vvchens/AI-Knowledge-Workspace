@@ -5,15 +5,16 @@ import shutil
 from pathlib import Path
 from uuid import uuid4
 
-from fastapi import APIRouter, BackgroundTasks, Depends, File, Header, HTTPException, UploadFile, status
+from fastapi import APIRouter, BackgroundTasks, Depends, File, HTTPException, UploadFile, status
 from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.core.auth import auth_service
-from app.core.config import settings
 from app.core.database import get_db_session
+from app.core.permissions import current_user, project_membership
+from app.core.config import settings
 from app.models.document import Document, DocumentStatus
+from app.models.organization_member import OrganizationMember
 from app.models.project import Project
 from app.models.user import User
 from app.services.document_ingestion import process_document
@@ -44,26 +45,11 @@ class DocumentListResponse(BaseModel):
     documents: list[DocumentResponse]
 
 
-def _current_user(
-    authorization: str | None = Header(default=None),
-    db: Session = Depends(get_db_session),
-) -> User:
-    session_token = None
-    if authorization and authorization.lower().startswith("bearer "):
-        session_token = authorization[7:].strip()
-    if not session_token:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Missing session")
-
-    user = auth_service.get_user_from_session(db, session_token)
-    if user is None:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid session")
-    return user
-
-
 def _project_for_user(project_id: str, user: User, db: Session) -> Project:
-    project = db.scalar(select(Project).where(Project.id == project_id, Project.owner_id == user.id))
+    project = db.get(Project, project_id)
     if project is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Project not found")
+    project_membership(project_id, user, db)
     return project
 
 
@@ -83,12 +69,12 @@ def _to_response(document: Document) -> DocumentResponse:
 def list_documents(
     project_id: str,
     db: Session = Depends(get_db_session),
-    user: User = Depends(_current_user),
+    user: User = Depends(current_user),
 ) -> DocumentListResponse:
     _project_for_user(project_id, user, db)
     documents = db.scalars(
         select(Document)
-        .where(Document.project_id == project_id, Document.owner_id == user.id)
+        .where(Document.project_id == project_id)
         .order_by(Document.created_at.desc())
     ).all()
     return DocumentListResponse(documents=[_to_response(document) for document in documents])
@@ -100,7 +86,7 @@ def upload_document(
     background_tasks: BackgroundTasks,
     file: UploadFile = File(...),
     db: Session = Depends(get_db_session),
-    user: User = Depends(_current_user),
+    user: User = Depends(current_user),
 ) -> DocumentResponse:
     _project_for_user(project_id, user, db)
     original_name = Path(file.filename or "document").name
@@ -164,18 +150,33 @@ def delete_document(
     project_id: str,
     document_id: str,
     db: Session = Depends(get_db_session),
-    user: User = Depends(_current_user),
+    user: User = Depends(current_user),
 ) -> None:
-    _project_for_user(project_id, user, db)
+    project = _project_for_user(project_id, user, db)
+    membership = project_membership(project_id, user, db)
     document = db.scalar(
         select(Document).where(
             Document.id == document_id,
             Document.project_id == project_id,
-            Document.owner_id == user.id,
         )
     )
     if document is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Document not found")
+
+    organization_membership = db.scalar(
+        select(OrganizationMember).where(
+            OrganizationMember.organization_id == project.organization_id,
+            OrganizationMember.user_id == user.id,
+            OrganizationMember.status == "active",
+        )
+    )
+    can_delete = (
+        document.owner_id == user.id
+        or membership.role in {"owner", "admin"}
+        or (organization_membership is not None and organization_membership.role in {"owner", "admin"})
+    )
+    if not can_delete:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Document delete permission required")
 
     upload_root = Path(settings.upload_dir).resolve()
     stored_path = Path(document.storage_path).resolve()

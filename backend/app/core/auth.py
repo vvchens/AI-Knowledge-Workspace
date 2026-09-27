@@ -196,9 +196,39 @@ class AuthService:
             user.display_name = auth_user.display_name
             user.firebase_uid = auth_user.firebase_uid
 
+        self._apply_configured_system_role(user, auth_user)
+
         db.commit()
         db.refresh(user)
         return user
+
+    def apply_configured_system_role(self, db: Session, user: User) -> User:
+        configured_role = "system_admin" if self._is_configured_system_admin(None, user) else "user"
+        if user.system_role != configured_role:
+            user.system_role = configured_role
+            db.commit()
+            db.refresh(user)
+        return user
+
+    @staticmethod
+    def _apply_configured_system_role(user: User, auth_user: AuthUser) -> None:
+        if AuthService._is_configured_system_admin(auth_user, user):
+            user.system_role = "system_admin"
+
+    @staticmethod
+    def _is_configured_system_admin(auth_user: AuthUser | None, user: User) -> bool:
+        configured_ids = settings.configured_system_admin_ids
+        return bool(configured_ids.intersection(
+            value
+            for value in (
+                auth_user.firebase_uid if auth_user is not None else None,
+                auth_user.provider_user_id if auth_user is not None else None,
+                user.firebase_uid,
+                user.provider_user_id,
+                user.id,
+            )
+            if value
+        ))
 
     def create_session(self, user: User) -> SessionPayload:
         now = _utcnow()

@@ -149,6 +149,8 @@ System Admin 是平台级管理员。
 
 System Admin 不等同于某个 Organization 的普通 Admin。
 
+平台必须支持通过后端环境变量注入最高权限账户 ID。环境变量使用逗号分隔的 Firebase UID，兼容本地 User ID；匹配账户完成 Firebase 登录后，Backend 必须自动将其标记为 `system_admin`。该权限不得由 Frontend 注入或修改。
+
 ---
 
 ## 3.2 Organization Admin

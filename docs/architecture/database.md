@@ -236,7 +236,7 @@ Alembic is responsible for evolving the schema.
 
 ---
 
-# 8a. Authentication Tables (`users`, `auth_sessions`)
+# 8a. Authentication and Tenant Tables
 
 Authentication state is split across two tables. This split is intentional:
 
@@ -254,6 +254,7 @@ provider_user_id    String(128), not null
 firebase_uid        String(128), nullable, unique
 email               String(320), nullable
 display_name        String(255), nullable
+system_role         String(32), not null              -- 'user' or 'system_admin'
 created_at          timestamptz, not null
 updated_at          timestamptz, not null
 
@@ -264,8 +265,49 @@ Notes:
 
 - `(provider, provider_user_id)` is the durable key that links a Firebase identity to a local user.
 - `firebase_uid` mirrors `provider_user_id` in the Firebase-only Phase 1; the column is retained so that future providers do not require a schema migration.
-- Business roles are NOT stored on this row. They are stored in `project_memberships`.
+- Organization roles are NOT authoritative on this row. They are stored in `organization_members`.
 - `email` and `display_name` are populated from the Firebase ID token at login; they are display hints, not authoritative identity data.
+
+## `organizations`
+
+```text
+id                   UUID, PK
+name                 String(255), not null
+slug                 String(255), not null, unique
+status               String(32), not null
+settings             JSON/text, nullable
+created_at           timestamptz, not null
+updated_at           timestamptz, not null
+```
+
+## `organization_members`
+
+```text
+organization_id      UUID, FK -> organizations.id, indexed
+user_id              UUID, FK -> users.id, indexed
+role                 String(32), not null   -- admin or user
+status               String(32), not null
+created_at           timestamptz, not null
+
+UNIQUE (organization_id, user_id)
+```
+
+Organization membership is the source of truth for tenant roles. `system_role` is reserved for platform-level administration and does not grant organization membership implicitly.
+
+The configured platform administrators are injected through `SYSTEM_ADMIN_IDS` (comma-separated Firebase UID or local user ID values; `SUPER_ADMIN_IDS` and `SUPER_ADMIN_ID` are accepted aliases). A matching account is promoted to `system_admin` when it successfully authenticates.
+
+## `project_memberships`
+
+```text
+project_id           UUID, FK -> projects.id, indexed
+user_id              UUID, FK -> users.id, indexed
+role                 String(32), not null   -- owner/admin/member/viewer
+created_at           timestamptz, not null
+
+UNIQUE (project_id, user_id)
+```
+
+Every project belongs to an organization and every project query must resolve access through this membership table. Organization and project membership checks are backend authorization boundaries, not frontend-only visibility rules.
 
 ## `auth_sessions`
 
@@ -290,6 +332,8 @@ Notes:
 |-----------------------|---------------------------------------------------|
 | `20260825_0001`       | Initial: creates `users` and `auth_sessions`      |
 | `20260905_0002`       | Removes application session state from `auth_sessions` |
+| `20260924_0008`       | Adds invitation storage and legacy role compatibility     |
+| `20260927_0009`       | Adds organizations and organization/project memberships  |
 
 The `20260905_0002` migration removes the session state columns from the original table. Application session state is now held by the process-local `InMemorySessionStore` and is never written to SQL.
 

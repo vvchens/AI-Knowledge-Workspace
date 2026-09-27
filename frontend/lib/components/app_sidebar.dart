@@ -3,7 +3,7 @@ import 'package:go_router/go_router.dart';
 
 import '../theme/app_tokens.dart';
 
-enum AppSidebarSection { dashboard, projects, documents, users }
+enum AppSidebarSection { dashboard, projects, documents, users, organizations }
 
 class AppSidebar extends StatelessWidget {
   const AppSidebar({
@@ -78,6 +78,12 @@ class AppSidebar extends StatelessWidget {
               label: 'Users',
               selected: section == AppSidebarSection.users,
               onTap: () => context.go('/users'),
+            ),
+            _AppSidebarItem(
+              icon: Icons.business_outlined,
+              label: 'Organizations',
+              selected: section == AppSidebarSection.organizations,
+              onTap: () => context.go('/organizations'),
             ),
             _AppSidebarItem(
               icon: Icons.settings_outlined,

@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'package:ai_knowledge_workspace/screens/dashboard_screen.dart';
 import 'package:ai_knowledge_workspace/screens/login_screen.dart';
+import 'package:ai_knowledge_workspace/screens/organizations_screen.dart';
 import 'package:ai_knowledge_workspace/screens/project_overview_screen.dart';
 import 'package:ai_knowledge_workspace/screens/users_screen.dart';
 
@@ -53,5 +54,18 @@ void main() {
     expect(find.text('Search users...'), findsOneWidget);
     expect(find.text('Invite user'), findsOneWidget);
     expect(find.text('No users found'), findsOneWidget);
+  });
+
+  testWidgets('organizations screen renders organization management sections',
+      (tester) async {
+    await tester.pumpWidget(
+      const MaterialApp(home: OrganizationsScreen(loadData: false)),
+    );
+
+    expect(find.text('Organizations'), findsWidgets);
+    expect(find.text('New organization'), findsOneWidget);
+    expect(
+        find.text('Manage tenant boundaries and organization administrators.'),
+        findsOneWidget);
   });
 }

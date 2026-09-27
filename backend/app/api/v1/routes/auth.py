@@ -1,14 +1,15 @@
 from datetime import datetime, timezone
-import hashlib
 
 from fastapi import APIRouter, Cookie, Depends, HTTPException, Response, status
 from pydantic import BaseModel, Field
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.auth import AuthError, auth_service
 from app.core.config import settings
 from app.core.database import get_db_session
 from app.models.user import User
+from app.models.organization_member import OrganizationMember
 from app.services.invitations import consume_invitation, get_invitation
 
 router = APIRouter(prefix="/auth", tags=["auth"])
@@ -31,6 +32,7 @@ class CurrentUserResponse(BaseModel):
     provider_user_id: str
     email: str | None = None
     display_name: str | None = None
+    system_role: str
 
 
 class InvitationRegistrationRequest(BaseModel):
@@ -93,10 +95,24 @@ def register_from_invitation(
     if auth_user.email is None or auth_user.email.strip().lower() != invitation.email:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Account email does not match invitation")
 
+    invitation = consume_invitation(payload.token, db)
     user = auth_service.get_or_create_user(db, auth_user)
     user.display_name = f"{payload.first_name.strip()} {payload.last_name.strip()}"
-    invitation = consume_invitation(payload.token, db)
     user.role = invitation.role
+    existing_membership = db.scalar(
+        select(OrganizationMember).where(
+            OrganizationMember.organization_id == invitation.organization_id,
+            OrganizationMember.user_id == user.id,
+        )
+    )
+    if existing_membership is None:
+        db.add(
+            OrganizationMember(
+                organization_id=invitation.organization_id,
+                user_id=user.id,
+                role=invitation.role,
+            )
+        )
     db.commit()
     return InvitationRegistrationResponse(
         registered=True,
@@ -129,6 +145,7 @@ def current_user(
         provider_user_id=user.provider_user_id,
         email=user.email,
         display_name=user.display_name,
+        system_role=user.system_role,
     )
 
 

@@ -9,6 +9,7 @@ import '../theme/app_tokens.dart';
 
 class WorkspaceUser {
   const WorkspaceUser({
+    required this.id,
     required this.name,
     required this.email,
     required this.role,
@@ -17,6 +18,7 @@ class WorkspaceUser {
     required this.lastActive,
   });
 
+  final String id;
   final String name;
   final String email;
   final String role;
@@ -63,6 +65,7 @@ class _UsersScreenState extends State<UsersScreen> {
         _users = users
             .map(
               (user) => WorkspaceUser(
+                id: user.id,
                 name: user.name,
                 email: user.email ?? 'No email provided',
                 role: user.role,
@@ -189,6 +192,97 @@ class _UsersScreenState extends State<UsersScreen> {
 
     if (invitation != null && mounted) {
       await _showInvitationResult(invitation);
+    }
+  }
+
+  Future<void> _editUser(WorkspaceUser user) async {
+    var role = user.role.toLowerCase();
+    final selectedRole = await showDialog<String>(
+      context: context,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: Text('Edit ${user.name}'),
+          content: DropdownButtonFormField<String>(
+            initialValue: role == 'admin' ? 'admin' : 'member',
+            decoration: const InputDecoration(labelText: 'Organization role'),
+            items: const [
+              DropdownMenuItem(value: 'admin', child: Text('Admin')),
+              DropdownMenuItem(value: 'member', child: Text('Member')),
+            ],
+            onChanged: (value) {
+              if (value != null) setDialogState(() => role = value);
+            },
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.of(dialogContext).pop(role),
+              child: const Text('Save'),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (selectedRole == null || selectedRole == user.role.toLowerCase()) return;
+    try {
+      final updatedRole = await ApiClient.instance.updateUserRole(
+        userId: user.id,
+        role: selectedRole,
+      );
+      if (!mounted) return;
+      setState(() {
+        _users = _users
+            .map((item) => item.id == user.id
+                ? WorkspaceUser(
+                    id: item.id,
+                    name: item.name,
+                    email: item.email,
+                    role: updatedRole,
+                    projects: item.projects,
+                    status: item.status,
+                    lastActive: item.lastActive,
+                  )
+                : item)
+            .toList();
+      });
+      _showMessage(context, 'User role updated.');
+    } catch (_) {
+      _showMessage(context, 'User role could not be updated.');
+    }
+  }
+
+  Future<void> _removeUser(WorkspaceUser user) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Remove user?'),
+        content: Text(
+          '${user.name} will lose access to this organization. Their account will not be deleted.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: const Text('Remove'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+    try {
+      await ApiClient.instance.removeUser(user.id);
+      if (!mounted) return;
+      setState(
+          () => _users = _users.where((item) => item.id != user.id).toList());
+      _showMessage(context, 'User removed from the organization.');
+    } catch (_) {
+      _showMessage(context, 'User could not be removed.');
     }
   }
 
@@ -443,11 +537,28 @@ class _UsersScreenState extends State<UsersScreen> {
                 DataCell(_statusChip(context, user.status)),
                 DataCell(Text(user.lastActive)),
                 DataCell(
-                  IconButton(
-                    onPressed: () =>
-                        _showMessage(context, 'User actions coming soon.'),
-                    icon: const Icon(Icons.more_horiz),
+                  PopupMenuButton<String>(
                     tooltip: 'User actions',
+                    onSelected: (action) {
+                      if (action == 'edit') _editUser(user);
+                      if (action == 'remove') _removeUser(user);
+                    },
+                    itemBuilder: (context) => const [
+                      PopupMenuItem(
+                        value: 'edit',
+                        child: ListTile(
+                          leading: Icon(Icons.edit_outlined),
+                          title: Text('Edit role'),
+                        ),
+                      ),
+                      PopupMenuItem(
+                        value: 'remove',
+                        child: ListTile(
+                          leading: Icon(Icons.delete_outline),
+                          title: Text('Remove user'),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ],
@@ -493,6 +604,21 @@ class _UsersScreenState extends State<UsersScreen> {
                       ],
                     ),
                     const SizedBox(height: AppSpacing.lg),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.end,
+                      children: [
+                        TextButton.icon(
+                          onPressed: () => _editUser(user),
+                          icon: const Icon(Icons.edit_outlined),
+                          label: const Text('Edit'),
+                        ),
+                        TextButton.icon(
+                          onPressed: () => _removeUser(user),
+                          icon: const Icon(Icons.delete_outline),
+                          label: const Text('Remove'),
+                        ),
+                      ],
+                    ),
                     Wrap(
                       spacing: AppSpacing.xl,
                       runSpacing: AppSpacing.sm,

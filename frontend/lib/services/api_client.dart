@@ -122,6 +122,52 @@ class InvitationRecord {
   final DateTime expiresAt;
 }
 
+class OrganizationRecord {
+  const OrganizationRecord({
+    required this.id,
+    required this.name,
+    required this.slug,
+    required this.status,
+  });
+
+  factory OrganizationRecord.fromJson(Map<String, dynamic> json) {
+    return OrganizationRecord(
+      id: json['id'] as String,
+      name: json['name'] as String,
+      slug: json['slug'] as String,
+      status: json['status'] as String,
+    );
+  }
+
+  final String id;
+  final String name;
+  final String slug;
+  final String status;
+}
+
+class OrganizationMemberRecord {
+  const OrganizationMemberRecord({
+    required this.organizationId,
+    required this.userId,
+    required this.role,
+    required this.status,
+  });
+
+  factory OrganizationMemberRecord.fromJson(Map<String, dynamic> json) {
+    return OrganizationMemberRecord(
+      organizationId: json['organization_id'] as String,
+      userId: json['user_id'] as String,
+      role: json['role'] as String,
+      status: json['status'] as String,
+    );
+  }
+
+  final String organizationId;
+  final String userId;
+  final String role;
+  final String status;
+}
+
 class SearchResultRecord {
   const SearchResultRecord({
     required this.documentId,
@@ -227,6 +273,69 @@ class ApiClient {
         .toList();
   }
 
+  Future<List<OrganizationRecord>> fetchOrganizations() async {
+    final response = await _dio.get<Map<String, dynamic>>(
+      '/organizations',
+      options: Options(headers: _sessionHeaders),
+    );
+    final organizations =
+        response.data?['organizations'] as List<dynamic>? ?? const [];
+    return organizations
+        .map((organization) =>
+            OrganizationRecord.fromJson(organization as Map<String, dynamic>))
+        .toList();
+  }
+
+  Future<OrganizationRecord> createOrganization({
+    required String name,
+    required String slug,
+  }) async {
+    final response = await _dio.post<Map<String, dynamic>>(
+      '/organizations',
+      data: {'name': name, 'slug': slug},
+      options: Options(headers: _sessionHeaders),
+    );
+    return OrganizationRecord.fromJson(response.data!);
+  }
+
+  Future<OrganizationRecord> updateOrganization({
+    required String organizationId,
+    String? name,
+    String? slug,
+    String? status,
+  }) async {
+    final response = await _dio.patch<Map<String, dynamic>>(
+      '/organizations/$organizationId',
+      data: {
+        if (name != null) 'name': name,
+        if (slug != null) 'slug': slug,
+        if (status != null) 'status': status,
+      },
+      options: Options(headers: _sessionHeaders),
+    );
+    return OrganizationRecord.fromJson(response.data!);
+  }
+
+  Future<OrganizationRecord> disableOrganization(String organizationId) async {
+    final response = await _dio.post<Map<String, dynamic>>(
+      '/organizations/$organizationId/disable',
+      options: Options(headers: _sessionHeaders),
+    );
+    return OrganizationRecord.fromJson(response.data!);
+  }
+
+  Future<OrganizationMemberRecord> setOrganizationAdmin({
+    required String organizationId,
+    required String userId,
+  }) async {
+    final response = await _dio.post<Map<String, dynamic>>(
+      '/organizations/$organizationId/admins',
+      data: {'user_id': userId},
+      options: Options(headers: _sessionHeaders),
+    );
+    return OrganizationMemberRecord.fromJson(response.data!);
+  }
+
   Future<InvitationRecord> createInvitation({
     required String email,
     required String role,
@@ -237,6 +346,25 @@ class ApiClient {
       options: Options(headers: _sessionHeaders),
     );
     return InvitationRecord.fromJson(response.data!);
+  }
+
+  Future<String> updateUserRole({
+    required String userId,
+    required String role,
+  }) async {
+    final response = await _dio.patch<Map<String, dynamic>>(
+      '/users/$userId',
+      data: {'role': role},
+      options: Options(headers: _sessionHeaders),
+    );
+    return response.data?['role'] as String? ?? role;
+  }
+
+  Future<void> removeUser(String userId) async {
+    await _dio.delete<void>(
+      '/users/$userId',
+      options: Options(headers: _sessionHeaders),
+    );
   }
 
   Future<InvitationRecord> validateInvitation(String token) async {
