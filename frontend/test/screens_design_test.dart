@@ -63,9 +63,9 @@ void main() {
     );
 
     expect(find.text('Organizations'), findsWidgets);
-    expect(find.text('New organization'), findsOneWidget);
     expect(
         find.text('Manage tenant boundaries and organization administrators.'),
         findsOneWidget);
+    expect(find.text('New organization'), findsNothing);
   });
 }

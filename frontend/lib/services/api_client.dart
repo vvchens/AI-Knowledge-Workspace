@@ -168,6 +168,16 @@ class OrganizationMemberRecord {
   final String status;
 }
 
+class OrganizationListRecord {
+  const OrganizationListRecord({
+    required this.organizations,
+    required this.canManage,
+  });
+
+  final List<OrganizationRecord> organizations;
+  final bool canManage;
+}
+
 class SearchResultRecord {
   const SearchResultRecord({
     required this.documentId,
@@ -237,7 +247,10 @@ class ApiClient {
 
   final Dio _dio;
   String? _sessionToken;
+  bool _canAccessOrganizations = false;
   Future<void> Function()? onSessionExpired;
+
+  bool get canAccessOrganizations => _canAccessOrganizations;
 
   Future<void> createBackendSession(String firebaseIdToken) async {
     final response = await _dio.post<Map<String, dynamic>>(
@@ -247,6 +260,31 @@ class ApiClient {
     _sessionToken = response.data?['session_token'] as String?;
     if (_sessionToken == null) {
       throw const FormatException('Backend session token was not returned.');
+    }
+    await refreshOrganizationAccess();
+  }
+
+  Future<void> logout() async {
+    try {
+      await _dio.post<void>(
+        '/auth/logout',
+        options: Options(headers: _sessionHeaders),
+      );
+    } finally {
+      _sessionToken = null;
+      _canAccessOrganizations = false;
+    }
+  }
+
+  Future<void> refreshOrganizationAccess() async {
+    try {
+      await fetchOrganizations();
+    } on DioException catch (error) {
+      if (error.response?.statusCode == 403) {
+        _canAccessOrganizations = false;
+        return;
+      }
+      rethrow;
     }
   }
 
@@ -273,17 +311,22 @@ class ApiClient {
         .toList();
   }
 
-  Future<List<OrganizationRecord>> fetchOrganizations() async {
+  Future<OrganizationListRecord> fetchOrganizations() async {
     final response = await _dio.get<Map<String, dynamic>>(
       '/organizations',
       options: Options(headers: _sessionHeaders),
     );
     final organizations =
         response.data?['organizations'] as List<dynamic>? ?? const [];
-    return organizations
-        .map((organization) =>
-            OrganizationRecord.fromJson(organization as Map<String, dynamic>))
-        .toList();
+    final result = OrganizationListRecord(
+      organizations: organizations
+          .map((organization) =>
+              OrganizationRecord.fromJson(organization as Map<String, dynamic>))
+          .toList(),
+      canManage: response.data?['can_manage'] as bool? ?? false,
+    );
+    _canAccessOrganizations = true;
+    return result;
   }
 
   Future<OrganizationRecord> createOrganization({

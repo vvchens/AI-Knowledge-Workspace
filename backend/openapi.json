@@ -1947,11 +1947,16 @@
             },
             "type": "array",
             "title": "Organizations"
+          },
+          "can_manage": {
+            "type": "boolean",
+            "title": "Can Manage"
           }
         },
         "type": "object",
         "required": [
-          "organizations"
+          "organizations",
+          "can_manage"
         ],
         "title": "OrganizationListResponse"
       },

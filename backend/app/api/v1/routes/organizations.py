@@ -4,7 +4,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db_session
-from app.core.permissions import require_system_admin
+from app.core.permissions import current_user, require_system_admin
 from app.models.organization import Organization
 from app.models.organization_member import OrganizationMember
 from app.models.user import User
@@ -44,6 +44,7 @@ class OrganizationResponse(BaseModel):
 
 class OrganizationListResponse(BaseModel):
     organizations: list[OrganizationResponse]
+    can_manage: bool
 
 
 def _to_response(organization: Organization) -> OrganizationResponse:
@@ -58,10 +59,38 @@ def _to_response(organization: Organization) -> OrganizationResponse:
 @router.get("", response_model=OrganizationListResponse)
 def list_organizations(
     db: Session = Depends(get_db_session),
-    _: User = Depends(require_system_admin),
+    user: User = Depends(current_user),
 ) -> OrganizationListResponse:
-    organizations = db.scalars(select(Organization).order_by(Organization.name.asc())).all()
-    return OrganizationListResponse(organizations=[_to_response(item) for item in organizations])
+    if user.system_role == "system_admin":
+        organizations = db.scalars(select(Organization).order_by(Organization.name.asc())).all()
+        return OrganizationListResponse(
+            organizations=[_to_response(item) for item in organizations],
+            can_manage=True,
+        )
+
+    memberships = db.scalars(
+        select(OrganizationMember)
+        .where(
+            OrganizationMember.user_id == user.id,
+            OrganizationMember.status == "active",
+        )
+        .order_by(OrganizationMember.created_at.asc())
+    ).all()
+    if len(memberships) < 2:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Organization switching requires membership in multiple organizations",
+        )
+    organization_ids = [membership.organization_id for membership in memberships]
+    organizations = db.scalars(
+        select(Organization)
+        .where(Organization.id.in_(organization_ids), Organization.status == "active")
+        .order_by(Organization.name.asc())
+    ).all()
+    return OrganizationListResponse(
+        organizations=[_to_response(item) for item in organizations],
+        can_manage=False,
+    )
 
 
 @router.post("", response_model=OrganizationResponse, status_code=status.HTTP_201_CREATED)

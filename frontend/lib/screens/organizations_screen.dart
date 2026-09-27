@@ -20,6 +20,7 @@ class _OrganizationsScreenState extends State<OrganizationsScreen> {
   String? _error;
   List<OrganizationRecord> _organizations = const [];
   List<UserRecord> _users = const [];
+  bool _canManage = false;
 
   @override
   void initState() {
@@ -37,14 +38,16 @@ class _OrganizationsScreenState extends State<OrganizationsScreen> {
       _error = null;
     });
     try {
-      final results = await Future.wait([
-        ApiClient.instance.fetchOrganizations(),
-        ApiClient.instance.fetchUsers(),
-      ]);
+      final organizationResult = await ApiClient.instance.fetchOrganizations();
+      var users = const <UserRecord>[];
+      if (organizationResult.canManage) {
+        users = await ApiClient.instance.fetchUsers();
+      }
       if (!mounted) return;
       setState(() {
-        _organizations = results[0] as List<OrganizationRecord>;
-        _users = results[1] as List<UserRecord>;
+        _organizations = organizationResult.organizations;
+        _canManage = organizationResult.canManage;
+        _users = users;
         _isLoading = false;
       });
     } catch (_) {
@@ -298,11 +301,12 @@ class _OrganizationsScreenState extends State<OrganizationsScreen> {
                   ],
                 ),
               ),
-              AppButton(
-                label: 'New organization',
-                icon: Icons.add_business_outlined,
-                onPressed: _createOrganization,
-              ),
+              if (_canManage)
+                AppButton(
+                  label: 'New organization',
+                  icon: Icons.add_business_outlined,
+                  onPressed: _createOrganization,
+                ),
             ],
           ),
         ),
@@ -415,6 +419,7 @@ class _OrganizationsScreenState extends State<OrganizationsScreen> {
   }
 
   Widget _buildActions(OrganizationRecord organization) {
+    if (!_canManage) return const SizedBox.shrink();
     return Wrap(
       spacing: AppSpacing.sm,
       children: [

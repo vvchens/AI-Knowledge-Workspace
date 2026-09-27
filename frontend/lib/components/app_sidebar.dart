@@ -1,6 +1,9 @@
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
+import '../services/api_client.dart';
 import '../theme/app_tokens.dart';
 
 enum AppSidebarSection { dashboard, projects, documents, users, organizations }
@@ -79,12 +82,13 @@ class AppSidebar extends StatelessWidget {
               selected: section == AppSidebarSection.users,
               onTap: () => context.go('/users'),
             ),
-            _AppSidebarItem(
-              icon: Icons.business_outlined,
-              label: 'Organizations',
-              selected: section == AppSidebarSection.organizations,
-              onTap: () => context.go('/organizations'),
-            ),
+            if (ApiClient.instance.canAccessOrganizations)
+              _AppSidebarItem(
+                icon: Icons.business_outlined,
+                label: 'Organizations',
+                selected: section == AppSidebarSection.organizations,
+                onTap: () => context.go('/organizations'),
+              ),
             _AppSidebarItem(
               icon: Icons.settings_outlined,
               label: 'Settings',
@@ -123,8 +127,24 @@ class AppSidebar extends StatelessWidget {
                       ],
                     ),
                   ),
-                  Icon(Icons.more_horiz,
-                      color: theme.colorScheme.onSurfaceVariant),
+                  PopupMenuButton<String>(
+                    tooltip: 'Account menu',
+                    icon: Icon(Icons.more_horiz,
+                        color: theme.colorScheme.onSurfaceVariant),
+                    onSelected: (value) {
+                      if (value == 'logout') _logout(context);
+                    },
+                    itemBuilder: (context) => const [
+                      PopupMenuItem<String>(
+                        value: 'logout',
+                        child: ListTile(
+                          contentPadding: EdgeInsets.zero,
+                          leading: Icon(Icons.logout),
+                          title: Text('Logout'),
+                        ),
+                      ),
+                    ],
+                  ),
                 ],
               ),
             ),
@@ -149,6 +169,20 @@ class AppSidebar extends StatelessWidget {
     ScaffoldMessenger.of(context)
       ..hideCurrentSnackBar()
       ..showSnackBar(SnackBar(content: Text(message)));
+  }
+
+  Future<void> _logout(BuildContext context) async {
+    try {
+      await ApiClient.instance.logout();
+      if (Firebase.apps.isNotEmpty) {
+        await FirebaseAuth.instance.signOut();
+      }
+      if (context.mounted) context.go('/login');
+    } catch (_) {
+      if (context.mounted) {
+        _showMessage(context, 'Logout could not be completed.');
+      }
+    }
   }
 }
 
