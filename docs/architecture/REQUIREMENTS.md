@@ -1,471 +1,1196 @@
-# AI Knowledge Workspace — Requirements Specification
+# 通用 Multi-tenant RAG 平台需求文档
 
-**Version:** 0.1  
-**Status:** Draft / Architecture Baseline  
-**Primary goal:** Build a portfolio-quality AI SaaS/RAG platform while learning and demonstrating practical LLM, RAG, Agent, Evaluation, and AI-assisted software engineering.
+## 1. 项目概述
 
----
+### 1.1 项目定位
 
-## 1. Product Vision
+本项目是一个**通用的企业级 Multi-tenant RAG（Retrieval-Augmented Generation）平台**。
 
-AI Knowledge Workspace is a multi-tenant knowledge platform in which administrators create independent AI-powered Projects, upload and manage project-specific documents, configure prompts and AI behavior, and provide ordinary users with a simple conversational interface.
+平台本身不绑定任何特定行业。核心能力包括：
 
-The product should feel like a real AI SaaS rather than a generic "chat with PDF" demo.
+* 用户与组织管理
+* 多租户隔离
+* RBAC 权限控制
+* 文档管理
+* 知识库管理
+* 文档解析与 Chunking
+* Embedding
+* 向量检索
+* RAG 问答
+* Prompt 管理
+* 可配置 Workflow
+* 文档审核/分析能力
+* 模块化业务能力
 
-The key idea is:
+平台可以通过 **Module / Preset** 为特定行业提供预配置能力。
 
-> **Simple user experience, sophisticated AI application layer.**
+第一个实际落地场景为：
 
-A user asks a normal question. The Project configuration determines how the system retrieves knowledge, constructs the prompt, invokes tools/agents, and generates a grounded answer.
+> **Real Estate Compliance**
 
----
+用于房地产 Agent、Broker 等专业用户，根据组织配置的法律法规、政策和其他知识库，对合同、广告、披露文件及其他文本进行辅助审核。
 
-## 2. Goals
+但是：
 
-### 2.1 Primary goals
+> **房地产逻辑不得直接耦合到 RAG Core。**
 
-1. Demonstrate real-world AI application architecture.
-2. Demonstrate advanced RAG rather than basic vector search.
-3. Demonstrate Agent/workflow concepts.
-4. Demonstrate measurable AI evaluation.
-5. Demonstrate RBAC, multi-project isolation, and production-style engineering.
-6. Demonstrate effective use of AI coding agents such as Codex.
-7. Produce a public portfolio project suitable for software/AI engineering job applications.
-8. Produce a platform that can later be used as a personal RAG system.
-
-### 2.2 Non-goals
-
-The project will NOT initially:
-
-- Train a foundation model.
-- Build a vector database from scratch.
-- Build an LLM inference engine.
-- Build a general-purpose replacement for Dify/LangChain/LlamaIndex.
-- Require a dedicated production GPU.
-- Attempt to support every possible document format.
-- Implement every possible Agent capability.
+房地产只是平台上的一个 Module / Preset。
 
 ---
 
-## 3. User Roles
+# 2. 核心设计原则
 
-### 3.1 Administrator
+## 2.1 RAG Core 与业务模块分离
 
-An administrator can:
+核心 RAG 系统只负责通用能力：
 
-- Create and manage Projects.
-- Upload, delete, and re-index documents.
-- Configure Project prompts.
-- Manage AI/model settings.
-- Configure retrieval behavior.
-- Configure tools/workflows.
-- Manage Project users.
-- Run evaluations.
-- Review evaluation results.
-- View operational/project metrics.
+```text
+Document
+Knowledge Base
+Chunk
+Embedding
+Retrieval
+Prompt
+LLM
+Workflow
+User
+Organization
+Permission
+```
 
-### 3.2 Normal User
+不得在核心代码中大量出现：
 
-A normal user can:
+```python
+if industry == "real_estate":
+    ...
+```
 
-- View Projects to which they have access.
-- Ask questions within a Project.
-- View conversation history.
-- View source citations.
-- Continue conversations.
-- Provide basic answer feedback.
-
-A normal user must NOT be able to modify Project configuration or access documents from Projects to which they do not belong.
+行业特定逻辑应该通过 Module、配置、Prompt、Workflow 和 Document Type 实现。
 
 ---
 
-## 4. Core Concepts
+## 2.2 Multi-tenant
 
-### Project
+平台支持多个 Organization。
 
-A Project is an isolated AI application.
+Organization 之间的数据必须逻辑隔离。
 
-A Project contains:
+例如：
 
-- Users/members
-- Documents
-- Knowledge chunks
-- System prompt
-- Prompt versions
-- Model configuration
-- Retrieval configuration
-- Optional tools/workflows
-- Evaluation datasets
-- Conversations
+```text
+Organization A
+    ├── Users
+    ├── Knowledge Bases
+    ├── Documents
+    └── Workflows
+
+Organization B
+    ├── Users
+    ├── Knowledge Bases
+    ├── Documents
+    └── Workflows
+```
+
+Organization A 的普通用户不能访问 Organization B 的资源。
+
+---
+
+## 2.3 权限控制必须在 Backend 强制执行
+
+Frontend 只负责展示允许用户执行的操作。
+
+真正的权限检查必须在 FastAPI Backend 完成。
+
+例如：
+
+```text
+DELETE /documents/{id}
+        ↓
+Authentication
+        ↓
+Authorization
+        ↓
+Resource ownership / organization check
+        ↓
+Document permission check
+        ↓
+Allow / 403 Forbidden
+```
+
+不能依赖：
+
+```text
+隐藏 Delete 按钮
+```
+
+来实现安全控制。
+
+---
+
+# 3. 用户与角色模型
+
+系统至少包含两个管理层级。
+
+## 3.1 System Admin
+
+System Admin 是平台级管理员。
+
+主要职责：
+
+* 管理 Organization
+* 创建/停用 Organization
+* 管理系统级配置
+* 管理 Module / Preset
+* 管理系统级 Prompt Template
+* 管理系统级 Workflow Template
+* 管理系统级模型配置
+* 管理平台运行状态
+* 管理平台级资源
+
+System Admin 不等同于某个 Organization 的普通 Admin。
+
+---
+
+## 3.2 Organization Admin
+
+Organization Admin 是组织级管理员。
+
+职责：
+
+* 管理本组织成员
+* 管理本组织 Knowledge Base
+* 上传和管理组织文档
+* 设置文档权限
+* 配置组织级 Prompt
+* 配置 Workflow
+* 启用/配置 Module
+* 管理组织级资源
+
+Organization Admin 只能管理自己所属 Organization 的资源。
+
+---
+
+## 3.3 Organization User
+
+普通用户主要使用平台提供的功能。
+
+例如：
+
+* 查询 Knowledge Base
+* 使用 RAG
+* 上传自己的文档
+* 对自己的文档执行分析
+* 使用 Organization 开放的 Workflow
+* 查看自己有权限访问的资源
+
+普通用户不能修改 Organization 全局设置。
+
+---
+
+# 4. User 与 Organization 的关系
+
+User 与 Organization 不应该简单设计成：
+
+```text
+users.organization_id
+```
+
+而应该使用 Membership 模型：
+
+```text
+User
+  │
+  │ many-to-many
+  ▼
+Organization
+```
+
+建议：
+
+```text
+users
+organizations
+organization_members
+```
+
+其中：
+
+```text
+organization_members
+--------------------
+user_id
+organization_id
+role
+status
+created_at
+```
+
+这样一个用户未来可以属于多个 Organization。
+
+例如：
+
+```text
+User A
+
+Organization X → Admin
+Organization Y → User
+```
+
+---
+
+# 5. Organization
+
+Organization 是平台的核心租户边界。
+
+Organization 可以代表：
+
+* 公司
+* Brokerage
+* 团队
+* 学校
+* 企业部门
+* 其他独立组织
+
+Organization 至少包含：
+
+```text
+id
+name
+slug
+status
+settings
+created_at
+updated_at
+```
+
+---
+
+# 6. Module / Preset
+
+## 6.1 概念
+
+Module 是平台针对特定业务场景提供的**能力模板**。
+
+Module 不应该修改 RAG Core。
+
+Module 可以包含：
+
+```text
+Module
+├── Prompt Templates
+├── Workflow Templates
+├── Document Types
+├── Review Types
+├── Default Settings
+├── UI configuration
+└── Knowledge Base configuration
+```
+
+---
+
+## 6.2 示例 Module
+
+未来可以存在：
+
+```text
+Real Estate Compliance
+Legal Research
+HR Policy
+Customer Support
+Technical Documentation
+```
+
+但这些都不是 RAG Core 的固定组成部分。
+
+---
+
+# 7. Real Estate Module
+
+第一个实际落地场景为：
+
+```text
+Real Estate Compliance
+```
+
+它只是一个 Module / Preset。
+
+## 7.1 典型用户
+
+* Real Estate Agent
+* Broker
+* Brokerage Administrator
+* Compliance Manager
+
+---
+
+## 7.2 典型知识库
+
+Organization Admin 可以配置：
+
+```text
+Georgia Laws
+Georgia Real Estate Commission Rules
+Brokerage Policies
+Office Compliance Manual
+Forms
+Internal Procedures
+```
+
+其中官方法律法规可以设置为：
+
+```text
+READ_ONLY
+```
+
+---
+
+## 7.3 典型使用场景
+
+### RAG Question
+
+例如：
+
+```text
+What does Georgia law require for this type of advertisement?
+```
+
+---
+
+### Document Review
+
+用户上传：
+
+```text
+listing.pdf
+contract.pdf
+advertisement.txt
+```
+
+然后：
+
+```text
+Review this document for potential compliance issues.
+```
+
+系统通过 RAG 检索相关法规并生成分析结果。
+
+---
+
+### Advertisement Review
+
+例如：
+
+```text
+Review this real estate advertisement against
+the organization's regulatory knowledge base.
+```
+
+---
+
+### Contract Review
+
+例如：
+
+```text
+Review this contract and identify provisions
+that may require further review.
+```
+
+---
+
+## 7.4 合规分析结果
+
+系统不应该简单输出：
+
+```text
+LEGAL
+ILLEGAL
+```
+
+而应该输出结构化结果，例如：
+
+```text
+Compliant
+Potential Issue
+Needs Review
+Unable to Determine
+```
+
+每一个 finding 应尽可能包含：
+
+```text
+Issue
+Explanation
+Document Evidence
+Relevant Source
+Source Chunk
+```
+
+系统应该明确区分：
+
+* RAG 检索到的事实
+* LLM 的分析
+* 不确定性
+* 需要人工进一步确认的内容
+
+系统不能把 AI 分析包装成确定性的法律意见。
+
+---
+
+# 8. Knowledge Base
+
+Knowledge Base 是一组具有共同用途和权限边界的 Documents。
+
+例如：
+
+```text
+Knowledge Base: Georgia Real Estate Regulations
+
+Documents:
+├── Georgia Code
+├── GREC Rules
+├── Definitions
+└── Advertising Rules
+```
+
+Knowledge Base 应至少包含：
+
+```text
+id
+organization_id
+name
+description
+status
+visibility
+created_at
+updated_at
+```
+
+---
+
+# 9. Document
+
+Document 是平台中的基础知识资源。
+
+建议至少包含：
+
+```text
+id
+organization_id
+owner_id
+knowledge_base_id
+title
+source_type
+access_level
+status
+metadata
+created_at
+updated_at
+```
+
+---
+
+# 10. Document Source Type
+
+Document 应支持来源类型。
+
+第一版可以包括：
+
+```text
+SYSTEM
+ORGANIZATION
+USER
+```
+
+含义：
+
+### SYSTEM
+
+平台级资源。
+
+例如：
+
+```text
+System documentation
+System prompt reference
+```
+
+---
+
+### ORGANIZATION
+
+Organization Admin 管理的组织资源。
+
+例如：
+
+```text
+Company Policy
+Brokerage Compliance Manual
+Official Regulations
+```
+
+---
+
+### USER
+
+用户自己的文档。
+
+例如：
+
+```text
+My Listing
+My Contract
+My Draft Advertisement
+```
+
+---
+
+# 11. Document Access Level
+
+建议至少支持：
+
+```text
+READ_ONLY
+ORGANIZATION
+PRIVATE
+```
+
+## READ_ONLY
+
+用户可以：
+
+* 查看
+* 搜索
+* RAG 检索
+
+但不能：
+
+* 修改
+* 删除
+
+例如：
+
+```text
+Official Laws
+Official Regulations
+```
+
+---
+
+## ORGANIZATION
+
+Organization 成员可以根据组织权限访问。
+
+Organization Admin 可以管理。
+
+---
+
+## PRIVATE
+
+只有 owner 和被授权用户可以访问。
+
+---
+
+# 12. Read-only 文档
+
+Read-only 是本项目的重要功能。
+
+例如 Organization Admin 上传：
+
+```text
+Georgia Real Estate Commission Rules
+```
+
+并设置：
+
+```text
+source_type = ORGANIZATION
+access_level = READ_ONLY
+```
+
+则：
+
+```text
+Organization Admin
+    View       ✓
+    Search     ✓
+    RAG        ✓
+    Edit       ✓
+    Delete     ✓
+
+Organization User
+    View       ✓
+    Search     ✓
+    RAG        ✓
+    Edit       ✗
+    Delete     ✗
+```
+
+注意：
+
+> Read-only 必须由 Backend 强制执行。
+
+不能仅通过前端隐藏按钮实现。
+
+---
+
+# 13. Document 与 RAG 数据关系
+
+Document 与 Chunk、Embedding 应建立明确关系：
+
+```text
+Document
+   │
+   ├── Chunk
+   │     ├── Embedding
+   │     ├── metadata
+   │     └── source location
+   │
+   └── metadata
+```
+
+用户删除 Document 时，应级联处理：
+
+```text
+Document
+   ↓
+Chunks
+   ↓
+Embeddings
+   ↓
+Document metadata
+```
+
+避免出现：
+
+```text
+Document 已删除
+但 Vector DB 中仍然可以检索到内容
+```
+
+---
+
+# 14. RAG Retrieval
+
+RAG Retrieval 必须执行权限过滤。
+
+不能出现：
+
+```text
+用户 A 查询
+    ↓
+Vector Search
+    ↓
+返回 Organization B 的 chunk
+```
+
+正确流程：
+
+```text
+User
+ ↓
+Organization Context
+ ↓
+Permission Filter
+ ↓
+Vector Retrieval
+ ↓
+Authorized Chunks
+ ↓
+LLM
+```
+
+权限过滤必须在 Retrieval 层考虑。
+
+---
+
+# 15. Prompt
+
+Prompt 应支持不同级别。
+
+```text
+System Prompt
+Organization Prompt
+Module Prompt
+Workflow Prompt
+User Query
+```
+
+推荐优先级：
+
+```text
+System
+  ↓
+Organization
+  ↓
+Module
+  ↓
+Workflow
+  ↓
+User Input
+```
+
+具体优先级和覆盖规则需要在实现阶段明确。
+
+---
+
+# 16. Workflow
+
+Workflow 用于描述复杂的 RAG 操作。
+
+基础 RAG：
+
+```text
+User Question
+      ↓
+Retrieve
+      ↓
+Generate Answer
+```
+
+Document Review：
+
+```text
+Document
+   ↓
+Parse
+   ↓
+Retrieve Relevant Knowledge
+   ↓
+Analyze
+   ↓
+Generate Findings
+   ↓
+Generate Report
+```
+
+Workflow 应尽量配置化，而不是写死在 RAG Core 中。
+
+---
+
+# 17. 通用 RAG 与业务 Workflow 的关系
+
+核心：
+
+```text
+RAG Engine
+```
+
+负责：
+
+* Parsing
+* Chunking
+* Embedding
+* Retrieval
+* Context construction
+* LLM generation
+
+业务 Module：
+
+```text
+Real Estate Compliance
+```
+
+负责定义：
+
+```text
+什么时候调用 RAG
+检索什么
+使用什么 Prompt
+如何组织结果
+如何生成 Review Report
+```
+
+---
+
+# 18. 权限模型
+
+整体权限结构：
+
+```text
+SYSTEM
+│
+├── System Admin
+│
+└── Organizations
+      │
+      ├── Organization Admin
+      │
+      └── Organization Users
+```
+
+资源 Scope：
+
+```text
+SYSTEM
+ORGANIZATION
+PRIVATE
+```
+
+权限判断至少需要考虑：
+
+```text
+User
+Role
+Organization Membership
+Resource Owner
+Resource Organization
+Resource Access Level
+Action
+```
+
+例如：
+
+```text
+Can User X delete Document Y?
+```
+
+需要依次判断：
+
+```text
+User authenticated?
+        ↓
+User belongs to Document's organization?
+        ↓
+Is user System Admin?
+        ↓
+Is user Organization Admin?
+        ↓
+Is user document owner?
+        ↓
+Is document READ_ONLY?
+        ↓
+Allow / Deny
+```
+
+---
+
+# 19. API 安全要求
+
+所有资源 API 必须进行：
+
+1. Authentication
+2. Authorization
+3. Organization isolation
+4. Resource ownership/access check
+
+例如：
+
+```text
+GET /documents/{id}
+POST /documents
+PATCH /documents/{id}
+DELETE /documents/{id}
+```
+
+不能仅通过：
+
+```text
+document_id
+```
+
+直接操作数据库。
+
+---
+
+# 20. 前端要求
+
+Frontend 应根据权限显示功能。
+
+例如普通用户看到：
+
+```text
+Document
+├── View
+├── Search
+└── Ask
+```
+
+Organization Admin 看到：
+
+```text
+Document
+├── View
+├── Search
+├── Edit
+├── Delete
+└── Permission
+```
+
+但：
+
+> UI 权限控制只是 UX，Backend Authorization 才是真正的安全边界。
+
+---
+
+# 21. MVP 第一阶段
+
+第一阶段不追求实现所有复杂功能。
+
+建议 MVP 包括：
+
+### Authentication
+
+* Login
+* User
+* System Admin
+* Organization Admin
+* Organization User
+
+### Organization
+
+* Create Organization
+* Organization membership
+* Organization Admin
+
+### Knowledge Base
+
+* Create
+* List
+* View
+* Delete
 
 ### Document
 
-An uploaded source file belonging to a Project.
+* Upload
+* Parse
+* Store
+* Chunk
+* Embedding
+* Search
+* Delete
 
-Initial target formats:
+### Permission
 
-- PDF
-- Markdown
-- TXT
-- DOCX
+* System Admin
+* Organization Admin
+* Organization User
+* Read-only Document
 
-Additional formats may be added later.
+### RAG
 
-### Chunk
-
-A searchable section extracted from a Document.
-
-Each chunk should retain useful metadata such as:
-
-- document ID
-- page/section when available
-- source filename
-- chunk position
-- language
-- document type
-
-### Conversation
-
-A user conversation associated with a Project.
-
-### Evaluation Case
-
-A question with expected behavior/results used to measure RAG/LLM quality.
+* Question
+* Retrieval
+* Answer
+* Source citation
 
 ---
 
-## 5. Functional Requirements
+# 22. MVP 第二阶段
 
-### FR-001 Authentication
-
-The system shall support user authentication.
-
-### FR-001a Identity provider
-
-The system shall delegate primary authentication to Firebase Authentication.
-
-Firebase is the **only** identity provider required by Phase 1. It issues and verifies ID tokens for:
-
-- Email / password
-- Google (OAuth via Firebase SDK)
-- Apple (OAuth via Firebase SDK)
-- Additional providers may be enabled in Firebase without backend changes
-
-The backend MUST verify Firebase ID tokens through `firebase_admin` before issuing any application-level session. Direct user-managed credentials (local passwords, API keys, JWT secrets) SHALL NOT be used as the primary login path.
-
-### FR-001b Application session
-
-After Firebase ID token verification, the backend issues a short-lived application session.
-
-Target semantics:
-
-- Session lifetime: configurable, default 168 hours (7 days)
-- Session identifier: opaque token, not the Firebase ID token itself
-- Session transport: `HttpOnly` + `SameSite=Lax` cookie (`Secure` enabled in production)
-- Session storage: **kept in-memory on the application server** (not persisted to the database); revocation is therefore scoped to the current process lifetime, and OAuth/provider linkage metadata is persisted separately
-- Provider linkage metadata (provider, provider user id, firebase uid, linked_at) is persisted in `auth_sessions` for audit and re-binding purposes only — it is NOT a session store
-
-The reason for this split is that OAuth linkage is durable business data, while session lifetime is an ephemeral operational concern.
-
-### FR-001c Single Sign-On
-
-The login UI shall expose Google and Apple sign-in entry points in addition to email/password. All three paths terminate in Firebase Authentication; the backend treats them uniformly once a Firebase ID token is presented.
-
-### FR-001d User invitation and registration
-
-Administrators shall be able to invite a workspace user by entering a required email address and selecting exactly one role:
-
-- `admin`
-- `member`
-
-After confirmation, the system shall create a registration link with these semantics:
-
-- The link is valid for 24 hours from creation.
-- The database stores only a hash of the link token, never the raw token.
-- The link is single-use. After successful registration, it shall be invalid immediately.
-- The invited Firebase account email must match the invitation email, case-insensitively.
-- The invitation result shall display the link and provide a copy-link action.
-- Email delivery is an integration placeholder in the current phase; the UI shall expose the action without requiring a mail provider.
-
-The registration page shall require:
-
-- First name
-- Last name
-- Password
-
-The password shall be created through Firebase Authentication. The backend shall verify the Firebase ID token, apply the invited role, save the user's full display name, and atomically consume the invitation. Expired, already-consumed, malformed, or email-mismatched invitations shall be rejected.
-
-### FR-001e User management
-
-Authenticated administrators shall be able to view workspace users with their email, role, project count, status, and last activity. User roles displayed by the API shall reflect the persisted invitation or account role rather than a hard-coded label.
-
-### FR-002 RBAC
-
-The system shall enforce role- and Project-based authorization.
-
-### FR-003 Project management
-
-Administrators shall be able to create, edit, archive, and configure Projects.
-
-### FR-004 Document ingestion
-
-Administrators shall be able to upload multiple documents.
-
-The ingestion pipeline shall:
-
-1. Store the original document.
-2. Parse the document.
-3. Extract text.
-4. Split text into chunks.
-5. Generate embeddings.
-6. Store chunks and metadata.
-7. Mark indexing status.
-
-### FR-005 Document lifecycle
-
-Documents shall have observable states such as:
-
-- Uploading
-- Processing
-- Indexed
-- Failed
-- Re-indexing
-
-### FR-006 RAG retrieval
-
-The system shall support:
-
-- metadata filtering
-- dense vector retrieval
-- keyword/full-text retrieval
-- hybrid retrieval
-- configurable top-K
-- optional reranking
-
-### FR-007 Prompt management
-
-Administrators shall be able to:
-
-- define a Project system prompt
-- create prompt versions
-- activate a prompt version
-- compare prompt versions
-- test prompts
-
-### FR-008 Chat
-
-Users shall be able to ask questions in a Project.
-
-The answer should support streaming output where practical.
-
-### FR-009 Citations
-
-Answers generated from Project knowledge should expose source citations.
-
-A citation should identify the originating document and useful location information when available.
-
-### FR-010 Agent/workflow
-
-Projects may define optional tools/workflows.
-
-The Agent layer may:
-
-- classify intent
-- decide whether retrieval is required
-- call configured tools
-- combine tool/RAG results
-- produce a final answer
-
-Agent behavior must remain observable and testable.
-
-### FR-011 Evaluation
-
-Administrators shall be able to:
-
-- create evaluation datasets
-- create evaluation cases
-- execute evaluation runs
-- inspect individual results
-- compare evaluation runs
-
-Target metrics include:
-
-- answer correctness
-- retrieval quality
-- citation correctness
-- groundedness/hallucination indicators
-- latency
-- token/cost usage where available
-
-### FR-012 Conversation history
-
-Users shall be able to view previous conversations within Projects they can access.
-
-### FR-013 Feedback
-
-Users may provide basic feedback on generated answers.
-
----
-
-## 6. Initial Screen Set
-
-### User
-
-1. Login
-2. Project List
-3. Chat
-4. Conversation History
-
-### Administrator
-
-5. Dashboard
-6. Project List
-7. Project Overview
-8. Documents
-9. Prompt
-10. AI / Retrieval
-11. Evaluation
-12. Users
-
-The first release should prioritize these screens rather than adding broad feature scope.
-
----
-
-## 7. RAG Requirements
-
-The target RAG architecture is:
+增加：
 
 ```text
-Question
-   ↓
-Optional Query Rewrite
-   ↓
-Metadata Filtering
-   ↓
-Dense Vector Search
-   +
-Full-Text Search
-   ↓
-Hybrid Rank Fusion
-   ↓
-Reranker
-   ↓
-Context Selection
-   ↓
-Prompt Construction
-   ↓
-LLM
-   ↓
-Answer + Citations
+Module
+Workflow
+Prompt Template
+Document Review
+Structured Findings
 ```
 
-The implementation should keep retrieval components independently testable.
-
----
-
-## 8. Agent Requirements
-
-The Agent system should be implemented as an application/runtime layer rather than tightly coupling business logic to one model provider.
-
-The design should allow:
-
-- multiple LLM providers
-- multiple tools
-- explicit tool schemas
-- controlled tool execution
-- execution traces
-- configurable Project behavior
-
-The initial Agent should remain intentionally small and deterministic.
-
----
-
-## 9. AI Provider Requirements
-
-LLM access shall be abstracted behind a provider interface.
-
-Conceptually:
+然后实现：
 
 ```text
-LLMProvider
- ├── OpenAIProvider
- ├── GeminiProvider
- ├── AnthropicProvider
- └── LocalProvider (future)
+Real Estate Compliance Module
 ```
 
-Embedding should similarly be abstracted.
+---
 
-A Project should record the embedding model used for its index. Changing embedding models should trigger a re-indexing strategy.
+# 23. 后续扩展
+
+未来可以支持：
+
+```text
+Multiple Organizations per User
+Team / Department
+Fine-grained ACL
+Document Sharing
+Document Versioning
+Audit Log
+Usage Tracking
+Billing
+Multiple LLM Providers
+Multiple Embedding Providers
+Hybrid Search
+Reranking
+Evaluation
+Automated RAG Evaluation
+Workflow Builder
+Plugin / Module Marketplace
+```
 
 ---
 
-## 10. Non-Functional Requirements
+# 24. 非目标
 
-### Security
+第一阶段不应该做：
 
-- Project-level data isolation.
-- Server-side authorization checks.
-- No trust in client-side role checks.
-- Secrets must not be stored in source code.
-- Uploaded documents must not be directly exposed without authorization.
-- Audit important administrative actions.
+* 把平台做成房地产专用系统
+* 将 Georgia 法规硬编码到 Backend
+* 将房地产规则写死到 RAG Engine
+* 实现复杂的企业级 ACL
+* 实现完整 Billing
+* 实现复杂 Workflow Builder
+* 实现全自动法律结论
 
-### Performance
+核心目标是：
 
-Initial target:
-
-- Typical chat request should begin responding within a few seconds under normal conditions.
-- Retrieval should normally complete within the latency budget defined by the evaluation environment.
-- Document indexing must be asynchronous.
-
-### Reliability
-
-- Background ingestion must survive transient failures.
-- Failed jobs must be retryable.
-- Important failures must be observable.
-
-### Maintainability
-
-- Feature-oriented Flutter structure.
-- Clear API boundaries.
-- Repository/service abstractions where useful.
-- Shared UI components.
-- Automated tests.
-- CI checks.
+> **先建立一个干净、可扩展的 Multi-tenant RAG Platform。**
 
 ---
 
-## 11. Portfolio Requirements
+# 25. 总体架构
 
-The repository should demonstrate:
+最终逻辑架构：
 
-- Architecture documentation
-- ADRs
-- RAG architecture
-- Agent architecture
-- Evaluation methodology
-- Test strategy
-- CI/CD
-- AI-assisted development workflow
-- Security considerations
-- Performance/quality measurements
-
-The project should favor demonstrable engineering decisions over raw code volume.
+```text
+                         RAG PLATFORM
+                              │
+        ┌─────────────────────┼─────────────────────┐
+        │                     │                     │
+   System Admin          Module / Preset       Organizations
+                              │                     │
+                    ┌─────────┼─────────┐           │
+                    │         │         │           │
+               Real Estate  Legal     HR       Organization A
+               Compliance  Research  Policy          │
+                                                      │
+                                      ┌───────────────┼──────────────┐
+                                      │               │              │
+                                   Members       Knowledge Bases   Settings
+                                                      │
+                                                 Documents
+                                                      │
+                                           ┌──────────┴──────────┐
+                                           │                     │
+                                      Organization             Private
+                                      Documents               Documents
+                                           │
+                                      READ_ONLY
+                                           │
+                                      RAG Engine
+                                           │
+                              ┌────────────┼────────────┐
+                              │            │            │
+                           Retrieval    Prompt       Workflow
+                              │            │            │
+                              └────────────┼────────────┘
+                                           │
+                                          LLM
+                                           │
+                                        Result
+```
 
 ---
 
-## 12. Definition of Done
+# 26. 核心实体关系
 
-A feature is considered complete only when:
+初步数据模型：
 
-1. Requirements are documented.
-2. Architecture is understood.
-3. Implementation is complete.
-4. Automated tests exist where appropriate.
-5. UI works on target form factors.
-6. Authorization is verified.
-7. Relevant logs/observability exist.
-8. Documentation is updated.
-9. Codex/AI-generated code has been human-reviewed.
-10. CI passes.
+```text
+User
+  │
+  ├──────────────┐
+  │              │
+  ▼              ▼
+OrganizationMember  Personal Resources
+  │
+  ▼
+Organization
+  │
+  ├── KnowledgeBase
+  │       │
+  │       └── Document
+  │               │
+  │               └── Chunk
+  │                       │
+  │                       └── Embedding
+  │
+  ├── Prompt
+  ├── Workflow
+  └── Module
+```
+
+平台级：
+
+```text
+SystemAdmin
+   │
+   ├── Organization
+   ├── Module
+   ├── System Prompt
+   └── System Configuration
+```
+
+---
+
+# 27. 设计目标总结
+
+本项目最终应该体现以下能力：
+
+### 通用性
+
+RAG Core 与具体行业无关。
+
+### Multi-tenancy
+
+不同 Organization 数据严格隔离。
+
+### RBAC
+
+System Admin、Organization Admin、Organization User 权限分离。
+
+### Resource-level Permission
+
+不同 Document 可以拥有不同访问权限。
+
+### Read-only Knowledge
+
+官方法规等知识可以作为只读知识源供所有组织成员查询。
+
+### Modular
+
+行业功能通过 Module / Preset 实现。
+
+### Configurable
+
+Prompt、Workflow、Knowledge Base 等尽量配置化。
+
+### Extensible
+
+未来可以增加新的行业和业务场景，而无需修改 RAG Core。
+
+---
+
+# 28. 第一阶段核心原则
+
+开发过程中必须始终遵守：
+
+> **RAG Core 不知道“地产”是什么。**
+
+它只知道：
+
+```text
+User
+Organization
+Knowledge Base
+Document
+Chunk
+Embedding
+Retrieval
+Prompt
+Workflow
+Permission
+```
+
+而：
+
+```text
+Real Estate Compliance
+```
+
+只是这些通用能力的一种组合。
+
+这样才能保证本项目最终是：
+
+> **一个通用的 Multi-tenant RAG Platform，而不是一个房地产 RAG Demo。**
