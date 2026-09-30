@@ -548,7 +548,13 @@ class ApiClient {
     return DocumentRecord.fromJson(response.data!);
   }
 
-  Map<String, String> get _sessionHeaders => _sessionToken == null
-      ? const <String, String>{}
-      : {'Authorization': 'Bearer $_sessionToken'};
+  Map<String, String> get _sessionHeaders {
+    if (_sessionToken == null) {
+      throw StateError(
+        'No active session token. Call createBackendSession() before making '
+        'authenticated requests.',
+      );
+    }
+    return {'Authorization': 'Bearer $_sessionToken'};
+  }
 }

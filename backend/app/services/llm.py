@@ -38,7 +38,16 @@ def _is_provider_overloaded(result: dict[str, Any]) -> bool:
 
 
 def _retry_after_overload(attempt: int) -> None:
-    """Wait according to the overload retry schedule before the next request."""
+    """Wait according to the overload retry schedule before the next request.
+
+    WARNING: This is a synchronous sleep that blocks the Uvicorn worker thread
+    for the duration of the delay.  All concurrent requests sharing this worker
+    are queued until the sleep returns.
+
+    TODO: Migrate ``generate_text`` to an async implementation (e.g. httpx) and
+    change the route to ``async def`` so that ``asyncio.sleep`` can be used here
+    without blocking the event loop.
+    """
     delay = 1 if attempt == 0 else 2
     time.sleep(delay)
 
