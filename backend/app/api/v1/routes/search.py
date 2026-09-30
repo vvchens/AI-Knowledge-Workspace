@@ -52,6 +52,20 @@ class LLMProviderOverloadedResponse(BaseModel):
     detail: LLMProviderOverloadedDetail
 
 
+# ==============================================================================
+# 解决方案 1：合规审查与违规检测提问 Prompt（测试用，已注释）
+# ==============================================================================
+# FAIR_HOUSING_COMPLIANCE_QUERY_PROMPT = """
+# 【任务】：合规审查与违规检测
+# 【参考法规】：请根据检索到的法规条文（特别是涉及经纪人不正当经营、歧视行为、执照惩处的条款，如 43-40-25 等）。
+# 【待审案例】：
+# 某中介发布房源：“适合高管或无孩夫妻，谢绝学龄前儿童，谢绝包括辅助动物在内的任何宠物；要求流利英语”。并在客户询问轮椅坡道和3岁孩子时回复：“房东明确要求不租给带小孩的家庭，且旧楼梯不适合行动不便人士，建议考虑其他现代化社区。”
+#
+# 【问题】：
+# 请评估上述中介的言行在法规下是否存在执照违规行为？引用法规分析其是否构成违规或不正当执业。
+# """
+
+
 QUERY_REWRITE_INSTRUCTIONS = """You rewrite a user's question for semantic retrieval in a RAG knowledge base.
 Return only one concise, professional search string. Preserve important entities, dates, jurisdictions,
 and technical terms. Do not answer the question, add explanations, or invent facts."""
@@ -109,8 +123,10 @@ def _llm_service_unavailable(exc: LLMError) -> HTTPException:
     )
 
 
-def _generate_answer(question: str, context: str) -> str:
-    answer = generate_text(
+async def _generate_answer(question: str, context: str) -> str:
+    # # 方法1测试：如需在后端强制注入合规检测 Prompt 进行效果测试，可取消下行注释：
+    # question = FAIR_HOUSING_COMPLIANCE_QUERY_PROMPT.strip()
+    answer = await generate_text(
         instructions=ANSWER_INSTRUCTIONS,
         input_text=f"User question:\n{question}\n\nRetrieved context:\n{context}",
         max_output_tokens=500,
@@ -119,7 +135,7 @@ def _generate_answer(question: str, context: str) -> str:
     if _is_user_facing_answer(answer):
         return answer
 
-    repaired_answer = generate_text(
+    repaired_answer = await generate_text(
         instructions=ANSWER_REPAIR_INSTRUCTIONS,
         input_text=f"User question:\n{question}\n\nCandidate answer:\n{answer}",
         max_output_tokens=500,
@@ -181,7 +197,7 @@ def _current_user(
         }
     },
 )
-def search_project(
+async def search_project(
     project_id: str,
     payload: SearchRequest,
     db: Session = Depends(get_db_session),
@@ -193,7 +209,7 @@ def search_project(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Project not found")
 
     try:
-        rewritten_query = generate_text(
+        rewritten_query = await generate_text(
             instructions=QUERY_REWRITE_INSTRUCTIONS,
             input_text=payload.query.strip(),
             max_output_tokens=120,
@@ -239,7 +255,7 @@ def search_project(
     logger.info("Search retrieved %d result(s) for project", len(results))
 
     try:
-        answer = _generate_answer(payload.query.strip(), _retrieval_context(results))
+        answer = await _generate_answer(payload.query.strip(), _retrieval_context(results))
     except LLMError as exc:
         logger.error("Search answer generation failed: %s", exc)
         raise _llm_service_unavailable(exc) from exc
