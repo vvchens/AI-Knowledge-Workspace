@@ -17,6 +17,7 @@ import 'screens/projects_screen.dart';
 import 'screens/register_screen.dart';
 import 'screens/organizations_screen.dart';
 import 'screens/users_screen.dart';
+import 'screens/settings_screen.dart';
 import 'theme/app_theme.dart';
 
 Future<void> main() async {
@@ -87,6 +88,10 @@ class App extends StatelessWidget {
         GoRoute(
           path: '/organizations',
           builder: (context, state) => const OrganizationsScreen(),
+        ),
+        GoRoute(
+          path: '/settings',
+          builder: (context, state) => const SettingsScreen(),
         ),
         GoRoute(
           path: '/project-overview',

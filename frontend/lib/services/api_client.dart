@@ -99,6 +99,29 @@ class UserRecord {
   final DateTime lastActive;
 }
 
+class CurrentUserRecord {
+  const CurrentUserRecord({
+    required this.userId,
+    required this.email,
+    required this.displayName,
+    required this.systemRole,
+  });
+
+  factory CurrentUserRecord.fromJson(Map<String, dynamic> json) {
+    return CurrentUserRecord(
+      userId: json['user_id'] as String,
+      email: json['email'] as String?,
+      displayName: json['display_name'] as String?,
+      systemRole: json['system_role'] as String? ?? 'user',
+    );
+  }
+
+  final String userId;
+  final String? email;
+  final String? displayName;
+  final String systemRole;
+}
+
 class InvitationRecord {
   const InvitationRecord({
     required this.email,
@@ -235,6 +258,7 @@ class ApiClient {
         onError: (error, handler) async {
           if (error.response?.statusCode == 401) {
             _sessionToken = null;
+            _currentUser = null;
             await onSessionExpired?.call();
           }
           handler.next(error);
@@ -247,10 +271,12 @@ class ApiClient {
 
   final Dio _dio;
   String? _sessionToken;
+  CurrentUserRecord? _currentUser;
   bool _canAccessOrganizations = false;
   Future<void> Function()? onSessionExpired;
 
   bool get canAccessOrganizations => _canAccessOrganizations;
+  CurrentUserRecord? get currentUser => _currentUser;
 
   Future<void> createBackendSession(String firebaseIdToken) async {
     final response = await _dio.post<Map<String, dynamic>>(
@@ -261,7 +287,18 @@ class ApiClient {
     if (_sessionToken == null) {
       throw const FormatException('Backend session token was not returned.');
     }
+    await fetchCurrentUser();
     await refreshOrganizationAccess();
+  }
+
+  Future<CurrentUserRecord> fetchCurrentUser() async {
+    final response = await _dio.get<Map<String, dynamic>>(
+      '/auth/me',
+      options: Options(headers: _sessionHeaders),
+    );
+    final currentUser = CurrentUserRecord.fromJson(response.data!);
+    _currentUser = currentUser;
+    return currentUser;
   }
 
   Future<void> logout() async {
@@ -272,6 +309,7 @@ class ApiClient {
       );
     } finally {
       _sessionToken = null;
+      _currentUser = null;
       _canAccessOrganizations = false;
     }
   }

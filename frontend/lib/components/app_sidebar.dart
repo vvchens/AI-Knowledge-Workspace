@@ -6,7 +6,14 @@ import 'package:go_router/go_router.dart';
 import '../services/api_client.dart';
 import '../theme/app_tokens.dart';
 
-enum AppSidebarSection { dashboard, projects, documents, users, organizations }
+enum AppSidebarSection {
+  dashboard,
+  projects,
+  documents,
+  users,
+  organizations,
+  settings,
+}
 
 class AppSidebar extends StatelessWidget {
   const AppSidebar({
@@ -21,6 +28,20 @@ class AppSidebar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final firebaseUser =
+        Firebase.apps.isNotEmpty ? FirebaseAuth.instance.currentUser : null;
+    final currentUser = ApiClient.instance.currentUser;
+    final displayName = currentUser?.displayName?.trim().isNotEmpty == true
+        ? currentUser!.displayName!.trim()
+        : firebaseUser?.displayName?.trim().isNotEmpty == true
+            ? firebaseUser!.displayName!.trim()
+            : currentUser?.email ?? firebaseUser?.email ?? 'Workspace user';
+    final role = currentUser?.systemRole == 'system_admin'
+        ? 'System Admin'
+        : currentUser?.systemRole == 'admin'
+            ? 'Admin'
+            : 'Member';
+    final initials = _initials(displayName);
     return Container(
       width: 240,
       color: theme.colorScheme.surface,
@@ -92,8 +113,8 @@ class AppSidebar extends StatelessWidget {
             _AppSidebarItem(
               icon: Icons.settings_outlined,
               label: 'Settings',
-              onTap: () =>
-                  _showMessage(context, 'Settings is not connected yet.'),
+              selected: section == AppSidebarSection.settings,
+              onTap: () => context.go('/settings'),
             ),
             const Divider(height: 1),
             Padding(
@@ -104,7 +125,7 @@ class AppSidebar extends StatelessWidget {
                     radius: 18,
                     backgroundColor: theme.colorScheme.primaryContainer,
                     child: Text(
-                      'SJ',
+                      initials,
                       style: theme.textTheme.labelMedium?.copyWith(
                         color: theme.colorScheme.onPrimaryContainer,
                         fontWeight: FontWeight.w700,
@@ -116,10 +137,14 @@ class AppSidebar extends StatelessWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text('Sarah Jenkins',
-                            style: theme.textTheme.labelMedium),
                         Text(
-                          'Platform Admin',
+                          displayName,
+                          overflow: TextOverflow.ellipsis,
+                          style: theme.textTheme.labelMedium,
+                        ),
+                        Text(
+                          role,
+                          overflow: TextOverflow.ellipsis,
                           style: theme.textTheme.labelMedium?.copyWith(
                             color: theme.colorScheme.onSurfaceVariant,
                           ),
@@ -152,6 +177,15 @@ class AppSidebar extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  String _initials(String name) {
+    final parts = name.split(RegExp(r'\s+')).where((part) => part.isNotEmpty);
+    final values = parts.toList();
+    if (values.isEmpty) return '?';
+    if (values.length == 1) return values.first.substring(0, 1).toUpperCase();
+    return '${values.first.substring(0, 1)}${values.last.substring(0, 1)}'
+        .toUpperCase();
   }
 
   void _openDocuments(BuildContext context) {
