@@ -1,6 +1,6 @@
 from datetime import datetime, timezone
 
-from fastapi import APIRouter, Cookie, Depends, HTTPException, Response, status
+from fastapi import APIRouter, Cookie, Depends, Header, HTTPException, Response, status
 from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -124,8 +124,11 @@ def register_from_invitation(
 @router.get("/me")
 def current_user(
     session_token: str | None = Cookie(default=None, alias=settings.session_cookie_name),
+    authorization: str | None = Header(default=None),
     db: Session = Depends(get_db_session),
 ) -> CurrentUserResponse:
+    if authorization and authorization.lower().startswith("bearer "):
+        session_token = authorization[7:].strip()
     if not session_token:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -153,7 +156,10 @@ def current_user(
 def logout(
     response: Response,
     session_token: str | None = Cookie(default=None, alias=settings.session_cookie_name),
+    authorization: str | None = Header(default=None),
 ) -> dict[str, bool]:
+    if authorization and authorization.lower().startswith("bearer "):
+        session_token = authorization[7:].strip()
     if session_token:
         auth_service.revoke_session(session_token)
 
