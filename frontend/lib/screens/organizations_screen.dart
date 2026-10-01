@@ -372,7 +372,7 @@ class _OrganizationsScreenState extends State<OrganizationsScreen> {
                         ? AppColors.success
                         : AppColors.warning,
                   )),
-                  DataCell(_buildActions(organization)),
+                  DataCell(_buildActions(context, organization)),
                 ],
               ),
             )
@@ -408,7 +408,7 @@ class _OrganizationsScreenState extends State<OrganizationsScreen> {
                     const SizedBox(height: AppSpacing.xs),
                     Text(organization.slug),
                     const SizedBox(height: AppSpacing.md),
-                    _buildActions(organization),
+                    _buildActions(context, organization),
                   ],
                 ),
               ),
@@ -418,22 +418,38 @@ class _OrganizationsScreenState extends State<OrganizationsScreen> {
     );
   }
 
-  Widget _buildActions(OrganizationRecord organization) {
-    if (!_canManage) return const SizedBox.shrink();
+  Widget _buildActions(BuildContext context, OrganizationRecord organization) {
+    final selected =
+        ApiClient.instance.currentOrganizationId.value == organization.id;
     return Wrap(
       spacing: AppSpacing.sm,
       children: [
         TextButton.icon(
-          onPressed: () => _setAdmin(organization),
-          icon: const Icon(Icons.admin_panel_settings_outlined),
-          label: const Text('Set admin'),
+          onPressed: selected
+              ? null
+              : () {
+                  ApiClient.instance.selectOrganization(organization.id);
+                  context.go('/projects');
+                },
+          icon: Icon(
+              selected ? Icons.check_circle_outline : Icons.login_outlined),
+          label: Text(selected
+              ? 'Current organization'
+              : 'Switch to this organization'),
         ),
-        IconButton(
-          onPressed: () => _editOrganization(organization),
-          icon: const Icon(Icons.edit_outlined),
-          tooltip: 'Edit organization',
-        ),
-        if (organization.status == 'active')
+        if (_canManage)
+          TextButton.icon(
+            onPressed: () => _setAdmin(organization),
+            icon: const Icon(Icons.admin_panel_settings_outlined),
+            label: const Text('Set admin'),
+          ),
+        if (_canManage)
+          IconButton(
+            onPressed: () => _editOrganization(organization),
+            icon: const Icon(Icons.edit_outlined),
+            tooltip: 'Edit organization',
+          ),
+        if (_canManage && organization.status == 'active')
           IconButton(
             onPressed: () => _disableOrganization(organization),
             icon: const Icon(Icons.block_outlined),

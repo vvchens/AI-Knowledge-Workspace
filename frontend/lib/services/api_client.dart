@@ -1,4 +1,5 @@
 import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart';
 import 'package:file_picker/file_picker.dart';
 
 import '../environment.dart';
@@ -42,6 +43,8 @@ class DocumentRecord {
     required this.contentType,
     required this.sizeBytes,
     required this.status,
+    required this.sourceType,
+    required this.accessLevel,
     required this.createdAt,
     required this.updatedAt,
   });
@@ -53,6 +56,8 @@ class DocumentRecord {
       contentType: json['content_type'] as String?,
       sizeBytes: json['size_bytes'] as int,
       status: json['status'] as String,
+      sourceType: json['source_type'] as String? ?? 'USER',
+      accessLevel: json['access_level'] as String? ?? 'PRIVATE',
       createdAt: DateTime.parse(json['created_at'] as String),
       updatedAt: DateTime.parse(json['updated_at'] as String),
     );
@@ -63,6 +68,8 @@ class DocumentRecord {
   final String? contentType;
   final int sizeBytes;
   final String status;
+  final String sourceType;
+  final String accessLevel;
   final DateTime createdAt;
   final DateTime updatedAt;
 }
@@ -251,6 +258,115 @@ class SearchResponseRecord {
   final List<SearchResultRecord> results;
 }
 
+class ConversationRecord {
+  const ConversationRecord({
+    required this.id,
+    required this.projectId,
+    required this.title,
+    required this.messageCount,
+    required this.createdAt,
+    required this.updatedAt,
+  });
+
+  factory ConversationRecord.fromJson(Map<String, dynamic> json) {
+    return ConversationRecord(
+      id: json['id'] as String,
+      projectId: json['project_id'] as String,
+      title: json['title'] as String,
+      messageCount: json['message_count'] as int? ?? 0,
+      createdAt: DateTime.parse(json['created_at'] as String),
+      updatedAt: DateTime.parse(json['updated_at'] as String),
+    );
+  }
+
+  final String id;
+  final String projectId;
+  final String title;
+  final int messageCount;
+  final DateTime createdAt;
+  final DateTime updatedAt;
+}
+
+class ConversationMessageRecord {
+  const ConversationMessageRecord({
+    required this.id,
+    required this.role,
+    required this.content,
+    required this.citations,
+    required this.createdAt,
+  });
+
+  factory ConversationMessageRecord.fromJson(Map<String, dynamic> json) {
+    final citations = json['citations'] as List<dynamic>? ?? const [];
+    return ConversationMessageRecord(
+      id: json['id'] as String,
+      role: json['role'] as String,
+      content: json['content'] as String,
+      citations: citations
+          .map((citation) => citation as Map<String, dynamic>)
+          .toList(),
+      createdAt: DateTime.parse(json['created_at'] as String),
+    );
+  }
+
+  final String id;
+  final String role;
+  final String content;
+  final List<Map<String, dynamic>> citations;
+  final DateTime createdAt;
+}
+
+class ConversationDetailRecord extends ConversationRecord {
+  const ConversationDetailRecord({
+    required super.id,
+    required super.projectId,
+    required super.title,
+    required super.messageCount,
+    required super.createdAt,
+    required super.updatedAt,
+    required this.messages,
+  });
+
+  factory ConversationDetailRecord.fromJson(Map<String, dynamic> json) {
+    final messages = json['messages'] as List<dynamic>? ?? const [];
+    return ConversationDetailRecord(
+      id: json['id'] as String,
+      projectId: json['project_id'] as String,
+      title: json['title'] as String,
+      messageCount: json['message_count'] as int? ?? messages.length,
+      createdAt: DateTime.parse(json['created_at'] as String),
+      updatedAt: DateTime.parse(json['updated_at'] as String),
+      messages: messages
+          .map((message) => ConversationMessageRecord.fromJson(
+              message as Map<String, dynamic>))
+          .toList(),
+    );
+  }
+
+  final List<ConversationMessageRecord> messages;
+}
+
+class ChatResponseRecord extends SearchResponseRecord {
+  const ChatResponseRecord({
+    required this.conversationId,
+    required super.rewrittenQuery,
+    required super.answer,
+    required super.results,
+  });
+
+  factory ChatResponseRecord.fromJson(Map<String, dynamic> json) {
+    final response = SearchResponseRecord.fromJson(json);
+    return ChatResponseRecord(
+      conversationId: json['conversation_id'] as String,
+      rewrittenQuery: response.rewrittenQuery,
+      answer: response.answer,
+      results: response.results,
+    );
+  }
+
+  final String conversationId;
+}
+
 class ApiClient {
   ApiClient._() : _dio = Dio(BaseOptions(baseUrl: AppEnvironment.apiBaseUrl)) {
     _dio.interceptors.add(
@@ -273,9 +389,20 @@ class ApiClient {
   String? _sessionToken;
   CurrentUserRecord? _currentUser;
   bool _canAccessOrganizations = false;
+  String? _currentOrganizationId;
+  List<OrganizationRecord> _organizations = const [];
+  final ValueNotifier<String?> currentOrganizationId =
+      ValueNotifier<String?>(null);
   Future<void> Function()? onSessionExpired;
 
   bool get canAccessOrganizations => _canAccessOrganizations;
+  List<OrganizationRecord> get organizations => _organizations;
+
+  void selectOrganization(String organizationId) {
+    _currentOrganizationId = organizationId;
+    currentOrganizationId.value = organizationId;
+  }
+
   CurrentUserRecord? get currentUser => _currentUser;
 
   Future<void> createBackendSession(String firebaseIdToken) async {
@@ -311,6 +438,8 @@ class ApiClient {
       _sessionToken = null;
       _currentUser = null;
       _canAccessOrganizations = false;
+      _currentOrganizationId = null;
+      currentOrganizationId.value = null;
     }
   }
 
@@ -363,7 +492,15 @@ class ApiClient {
           .toList(),
       canManage: response.data?['can_manage'] as bool? ?? false,
     );
-    _canAccessOrganizations = true;
+    _organizations = result.organizations;
+    if (_currentOrganizationId == null ||
+        !result.organizations
+            .any((item) => item.id == _currentOrganizationId)) {
+      selectOrganization(
+          result.organizations.isEmpty ? '' : result.organizations.first.id);
+    }
+    _canAccessOrganizations =
+        result.organizations.length > 1 || result.canManage;
     return result;
   }
 
@@ -485,6 +622,44 @@ class ApiClient {
     return SearchResponseRecord.fromJson(response.data ?? const {});
   }
 
+  Future<ChatResponseRecord> sendProjectMessage({
+    required String projectId,
+    required String query,
+    String? conversationId,
+  }) async {
+    final response = await _dio.post<Map<String, dynamic>>(
+      '/projects/$projectId/chat',
+      data: {
+        'query': query,
+        if (conversationId != null) 'conversation_id': conversationId,
+      },
+      options: Options(headers: _sessionHeaders),
+    );
+    return ChatResponseRecord.fromJson(response.data ?? const {});
+  }
+
+  Future<List<ConversationRecord>> fetchConversations(String projectId) async {
+    final response = await _dio.get<List<dynamic>>(
+      '/projects/$projectId/conversations',
+      options: Options(headers: _sessionHeaders),
+    );
+    return (response.data ?? const [])
+        .map((conversation) =>
+            ConversationRecord.fromJson(conversation as Map<String, dynamic>))
+        .toList();
+  }
+
+  Future<ConversationDetailRecord> fetchConversation({
+    required String projectId,
+    required String conversationId,
+  }) async {
+    final response = await _dio.get<Map<String, dynamic>>(
+      '/projects/$projectId/conversations/$conversationId',
+      options: Options(headers: _sessionHeaders),
+    );
+    return ConversationDetailRecord.fromJson(response.data!);
+  }
+
   Future<ProjectRecord> fetchProject(String projectId) async {
     final response = await _dio.get<Map<String, dynamic>>(
       '/projects/$projectId',
@@ -555,6 +730,10 @@ class ApiClient {
         'authenticated requests.',
       );
     }
-    return {'Authorization': 'Bearer $_sessionToken'};
+    return {
+      'Authorization': 'Bearer $_sessionToken',
+      if (_currentOrganizationId != null && _currentOrganizationId!.isNotEmpty)
+        'X-Organization-Id': _currentOrganizationId!,
+    };
   }
 }

@@ -18,6 +18,18 @@ class DocumentStatus(str, Enum):
     FAILED = "FAILED"
 
 
+class DocumentSourceType(str, Enum):
+    SYSTEM = "SYSTEM"
+    ORGANIZATION = "ORGANIZATION"
+    USER = "USER"
+
+
+class DocumentAccessLevel(str, Enum):
+    READ_ONLY = "READ_ONLY"
+    ORGANIZATION = "ORGANIZATION"
+    PRIVATE = "PRIVATE"
+
+
 class Document(Base):
     __tablename__ = "documents"
 
@@ -27,6 +39,18 @@ class Document(Base):
     )
     owner_id: Mapped[str] = mapped_column(
         String(36), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    source_type: Mapped[DocumentSourceType] = mapped_column(
+        SqlEnum(DocumentSourceType, name="document_source_type"),
+        nullable=False,
+        default=DocumentSourceType.ORGANIZATION,
+        index=True,
+    )
+    access_level: Mapped[DocumentAccessLevel] = mapped_column(
+        SqlEnum(DocumentAccessLevel, name="document_access_level"),
+        nullable=False,
+        default=DocumentAccessLevel.ORGANIZATION,
+        index=True,
     )
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     storage_path: Mapped[str] = mapped_column(String(1024), nullable=False)

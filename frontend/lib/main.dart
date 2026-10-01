@@ -18,6 +18,8 @@ import 'screens/register_screen.dart';
 import 'screens/organizations_screen.dart';
 import 'screens/users_screen.dart';
 import 'screens/settings_screen.dart';
+import 'screens/user_chat_screen.dart';
+import 'screens/user_history_screen.dart';
 import 'theme/app_theme.dart';
 
 Future<void> main() async {
@@ -104,6 +106,33 @@ class App extends StatelessWidget {
           builder: (context, state) => ProjectDocumentsScreen(
             projectId: state.uri.queryParameters['projectId'],
           ),
+        ),
+        GoRoute(
+          path: '/project-chat',
+          builder: (context, state) {
+            final projectId = state.uri.queryParameters['projectId'];
+            if (projectId == null || projectId.isEmpty) {
+              return const Scaffold(
+                body: Center(child: Text('Missing project ID.')),
+              );
+            }
+            return UserChatScreen(
+              projectId: projectId,
+              conversationId: state.uri.queryParameters['conversationId'],
+            );
+          },
+        ),
+        GoRoute(
+          path: '/project-history',
+          builder: (context, state) {
+            final projectId = state.uri.queryParameters['projectId'];
+            if (projectId == null || projectId.isEmpty) {
+              return const Scaffold(
+                body: Center(child: Text('Missing project ID.')),
+              );
+            }
+            return UserHistoryScreen(projectId: projectId);
+          },
         ),
       ],
     );

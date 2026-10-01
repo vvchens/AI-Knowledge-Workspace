@@ -1,12 +1,12 @@
 from datetime import datetime
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, Header, HTTPException, status
 from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db_session
-from app.core.permissions import current_user, organization_member, project_membership
+from app.core.permissions import current_user, organization_member, project_for_organization_member
 from app.models.project import Project
 from app.models.project_membership import ProjectMembership
 from app.models.user import User
@@ -53,11 +53,16 @@ def _to_response(project: Project) -> ProjectResponse:
 def list_projects(
     db: Session = Depends(get_db_session),
     user: User = Depends(current_user),
+    organization_id: str | None = Header(default=None, alias="X-Organization-Id"),
 ) -> ProjectListResponse:
     projects = db.scalars(
         select(Project)
-        .join(ProjectMembership, ProjectMembership.project_id == Project.id)
-        .where(ProjectMembership.user_id == user.id)
+        .join(OrganizationMember, OrganizationMember.organization_id == Project.organization_id)
+        .where(
+            OrganizationMember.user_id == user.id,
+            OrganizationMember.status == "active",
+            *([Project.organization_id == organization_id] if organization_id else []),
+        )
         .order_by(Project.updated_at.desc())
     ).all()
     return ProjectListResponse(projects=[_to_response(project) for project in projects])
@@ -90,8 +95,5 @@ def get_project(
     db: Session = Depends(get_db_session),
     user: User = Depends(current_user),
 ) -> ProjectResponse:
-    project_membership(project_id, user, db)
-    project = db.get(Project, project_id)
-    if project is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Project not found")
+    project = project_for_organization_member(project_id, user, db)
     return _to_response(project)

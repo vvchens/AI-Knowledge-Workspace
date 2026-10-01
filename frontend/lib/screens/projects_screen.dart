@@ -346,7 +346,12 @@ class _ProjectsScreenState extends State<ProjectsScreen> {
     return AppCard(
       padding: const EdgeInsets.all(AppSpacing.lg),
       child: InkWell(
-        onTap: () => context.go('/project-overview?projectId=${project.id}'),
+        onTap: () => context.go(
+          Uri(
+            path: '/project-chat',
+            queryParameters: {'projectId': project.id},
+          ).toString(),
+        ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [

@@ -307,7 +307,11 @@ created_at           timestamptz, not null
 UNIQUE (project_id, user_id)
 ```
 
-Every project belongs to an organization and every project query must resolve access through this membership table. Organization and project membership checks are backend authorization boundaries, not frontend-only visibility rules.
+Projects are organization-scoped workspaces. An active member of the owning organization may access a Project; resource-level visibility is enforced for Documents during listing and retrieval. `project_memberships` is retained for future per-project roles, but is not the default read-access gate.
+
+## Document resource access
+
+Documents use `source_type` (`SYSTEM`, `ORGANIZATION`, `USER`) and `access_level` (`READ_ONLY`, `ORGANIZATION`, `PRIVATE`). Organization members can retrieve `ORGANIZATION` and `READ_ONLY` documents in shared Projects; `PRIVATE` documents are restricted to their owner until a future ACL grants additional access.
 
 ## `auth_sessions`
 
@@ -326,6 +330,36 @@ Notes:
 - This table does **not** store the application session token, its expiration, or its revocation state. Those live in the application process memory.
 - `last_seen_at` is updated on every successful session resolution.
 
+## `conversations` and `conversation_messages`
+
+Conversation history is persisted per project and authenticated user.
+
+```text
+conversations
+-------------
+id             UUID, PK
+project_id     UUID, FK -> projects.id, indexed
+user_id        UUID, FK -> users.id, indexed
+title          String(255), not null
+created_at     timestamptz, not null
+updated_at     timestamptz, not null
+
+conversation_messages
+---------------------
+id               UUID, PK
+conversation_id  UUID, FK -> conversations.id, indexed
+project_id       UUID, FK -> projects.id, indexed
+user_id          UUID, FK -> users.id, indexed
+role             String(32), not null -- user or assistant
+content          text, not null
+citations        JSON, nullable
+created_at       timestamptz, not null
+```
+
+The API only returns conversations belonging to the authenticated user and a
+organization-scoped project access. Assistant citations are stored with the assistant message
+so reopening a conversation does not require rerunning retrieval or the LLM.
+
 ## Migration history
 
 | Revision              | Description                                       |
@@ -334,6 +368,8 @@ Notes:
 | `20260905_0002`       | Removes application session state from `auth_sessions` |
 | `20260924_0008`       | Adds invitation storage and legacy role compatibility     |
 | `20260927_0009`       | Adds organizations and organization/project memberships  |
+| `20260930_0010`       | Adds conversations and conversation messages             |
+| `20260930_0011`       | Adds document source and access levels                   |
 
 The `20260905_0002` migration removes the session state columns from the original table. Application session state is now held by the process-local `InMemorySessionStore` and is never written to SQL.
 

@@ -10,6 +10,7 @@ from app.core.database import get_db_session
 from app.models.organization_member import OrganizationMember
 from app.models.organization import Organization
 from app.models.project_membership import ProjectMembership
+from app.models.project import Project
 from app.models.user import User
 
 
@@ -95,6 +96,27 @@ def project_membership(
     if membership is None:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Project access denied")
     return membership
+
+
+def project_for_organization_member(project_id: str, user: User, db: Session) -> Project:
+    project = db.get(Project, project_id)
+    if project is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Project not found")
+    if user.system_role == "system_admin":
+        return project
+    membership = db.scalar(
+        select(OrganizationMember)
+        .join(Organization, Organization.id == OrganizationMember.organization_id)
+        .where(
+            OrganizationMember.organization_id == project.organization_id,
+            OrganizationMember.user_id == user.id,
+            OrganizationMember.status == "active",
+            Organization.status == "active",
+        )
+    )
+    if membership is None:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Project access denied")
+    return project
 
 
 def require_system_admin(user: User = Depends(current_user)) -> User:

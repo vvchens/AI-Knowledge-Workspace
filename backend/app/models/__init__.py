@@ -1,6 +1,7 @@
 from app.models.auth_session import AuthSession
 from app.models.base import Base
 from app.models.document import Document, DocumentChunk
+from app.models.conversation import Conversation, ConversationMessage
 from app.models.invitation import UserInvitation
 from app.models.organization import Organization
 from app.models.organization_member import OrganizationMember
@@ -19,4 +20,6 @@ __all__ = [
 	"Project",
 	"Document",
 	"DocumentChunk",
+	"Conversation",
+	"ConversationMessage",
 ]

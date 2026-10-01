@@ -3,14 +3,13 @@ from typing import Literal
 
 from fastapi import APIRouter, Depends, Header, HTTPException, status
 from pydantic import BaseModel, Field
-from sqlalchemy import select
+from sqlalchemy import or_, select
 from sqlalchemy.orm import Session
 
-from app.core.auth import auth_service
 from app.core.config import settings
 from app.core.database import get_db_session
-from app.models.document import Document, DocumentChunk, DocumentStatus
-from app.models.project import Project
+from app.core.permissions import current_user, project_for_organization_member
+from app.models.document import Document, DocumentAccessLevel, DocumentChunk, DocumentStatus
 from app.models.user import User
 from app.services.embedding import EmbeddingError, embed_texts
 from app.services.llm import LLMError, LLMProviderOverloadedError, generate_text
@@ -201,12 +200,9 @@ async def search_project(
     project_id: str,
     payload: SearchRequest,
     db: Session = Depends(get_db_session),
-    user: User = Depends(_current_user),
+    user: User = Depends(current_user),
 ) -> SearchResponse:
-    project = db.scalar(select(Project).where(Project.id == project_id, Project.owner_id == user.id))
-    if project is None:
-        logger.warning("Search request rejected: project not found for authenticated user")
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Project not found")
+    project_for_organization_member(project_id, user, db)
 
     try:
         rewritten_query = await generate_text(
@@ -234,8 +230,8 @@ async def search_project(
         .join(Document, Document.id == DocumentChunk.document_id)
         .where(
             Document.project_id == project_id,
-            Document.owner_id == user.id,
             Document.status == DocumentStatus.INDEXED,
+            or_(Document.access_level.in_([DocumentAccessLevel.ORGANIZATION, DocumentAccessLevel.READ_ONLY]), Document.owner_id == user.id),
         )
         .order_by(distance)
         .limit(payload.limit)

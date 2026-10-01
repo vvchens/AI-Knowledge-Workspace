@@ -76,11 +76,6 @@ def list_organizations(
         )
         .order_by(OrganizationMember.created_at.asc())
     ).all()
-    if len(memberships) < 2:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Organization switching requires membership in multiple organizations",
-        )
     organization_ids = [membership.organization_id for membership in memberships]
     organizations = db.scalars(
         select(Organization)
